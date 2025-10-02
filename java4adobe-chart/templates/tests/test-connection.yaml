@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "java4adobe-chart.fullname" . }}-test-connection"
+  labels:
+    {{- include "java4adobe-chart.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "java4adobe-chart.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never
