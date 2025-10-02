@@ -71,7 +71,7 @@ echo "[acr-login] Getting access token for $LOGIN_SERVER ..."
 TOKEN="$(az acr login -n "$ACR_NAME" --expose-token --output tsv --query accessToken)"
 podman login "$LOGIN_SERVER" -u 00000000-0000-0000-0000-000000000000 -p "$TOKEN"
 echo "[acr-login] Podman is logged into $LOGIN_SERVER"
-EOS    
+EOS
 
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace
