@@ -1,0 +1,170 @@
+# Rebuild
+podman build -t k1:rhel9 .
+
+# Create persistent volumes once
+podman volume create k1-containers
+podman volume create k1-workspace
+podman volume create k1-trivy
+podman volume create k1-m2
+podman volume create k1-kube
+podman volume create k1-azure
+podman volume create k1-dbdata
+
+
+
+podman run -d --name k1 --hostname k1 \
+  --privileged --network host \
+  -v k1-containers:/var/lib/containers \
+  -v k1-workspace:/workspace \
+  -v k1-trivy:/root/.cache/trivy \
+  -v k1-m2:/root/.m2 \
+  -v k1-kube:/root/.kube \
+  -v k1-azure:/root/.azure \
+  -v k1-dbdata:/data \
+  --entrypoint /usr/bin/sleep \
+  k1:rhel9 infinity  
+
+# Jump in
+podman exec -it k1 bash  
+
+
+kubelogin --version
+az --version | head -n 3
+kubectl version --client --output=yaml | grep gitVersion
+helm version
+trivy --version 
+
+
+BUILD IMAGES
+
+run the java and hanna build script
+
+Now run the following in the k1 container
+
+1) Log in to Azure and ACR
+az account show >/dev/null 2>&1 || az login --use-device-code
+
+
+Tries to print your current Azure login (az account show).
+
+If you’re not logged in (command fails), the || runs the right-hand side: az login --use-device-code, which shows a short code. Paste that code in the browser once to authenticate.
+
+>/dev/null 2>&1 just hides normal and error output; we only care about success/failure.
+
+export ACR_NAME=aksdemoacr3
+
+
+Saves your Azure Container Registry short name in an env var so you can reuse it.
+
+Your registry’s full hostname will be ${ACR_NAME}.azurecr.io → aksdemoacr3.azurecr.io.
+
+TOKEN=$(az acr login -n "$ACR_NAME" --expose-token -o tsv --query accessToken)
+
+
+Asks Azure for a short-lived access token to your ACR (this does not store Docker/Podman creds by itself).
+
+--expose-token returns an OAuth token instead of doing a full docker login.
+
+-o tsv --query accessToken extracts just the token string and saves it to TOKEN.
+
+podman login ${ACR_NAME}.azurecr.io \
+  -u 00000000-0000-0000-0000-000000000000 -p "$TOKEN"
+
+
+Logs Podman into your registry using that short-lived token.
+
+The username must be that all-zeros GUID when you use token-based ACR auth (that’s by design).
+
+After this, Podman can push/pull to aksdemoacr3.azurecr.io until the token expires.
+
+2) Tag your local images with ACR destinations
+podman tag localhost/java-ads-demo:0.1  ${ACR_NAME}.azurecr.io/dev/java-ads-demo:0.1
+podman tag localhost/hana-standin:0.1   ${ACR_NAME}.azurecr.io/dev/hana-standin:0.1
+podman tag localhost/java-ads-demo:0.1  ${ACR_NAME}.azurecr.io/demo/java-ads-demo:0.1
+podman tag localhost/hana-standin:0.1   ${ACR_NAME}.azurecr.io/demo/hana-standin:0.1
+
+
+podman tag SRC DST creates additional names for the same local image. No data moves yet.
+
+localhost/... is how Podman shows images built locally (no registry).
+
+...azurecr.io/dev/... and ...azurecr.io/demo/... are the destinations you’ll push to.
+
+Using dev/ and demo/ as repository prefixes neatly separates environments inside the same registry. (ACR will auto-create these repos on first push.)
+
+3) Push images to ACR
+podman push ${ACR_NAME}.azurecr.io/dev/java-ads-demo:0.1
+podman push ${ACR_NAME}.azurecr.io/dev/hana-standin:0.1
+podman push ${ACR_NAME}.azurecr.io/demo/java-ads-demo:0.1
+podman push ${ACR_NAME}.azurecr.io/demo/hana-standin:0.1
+
+
+Uploads the image layers and tags to ACR.
+
+If a repo (e.g., dev/java-ads-demo) doesn’t exist yet, ACR creates it automatically.
+
+If you see 401 Unauthorized, your token likely expired—just rerun the login lines.
+
+4) Verify in the registry
+az acr repository list -n ${ACR_NAME} -o table
+
+
+Lists repositories now present in ACR. You should see dev/java-ads-demo, demo/java-ads-demo, dev/hana-standin, demo/hana-standin.
+
+az acr repository show-tags -n ${ACR_NAME} --repository dev/java-ads-demo  -o table
+az acr repository show-tags -n ${ACR_NAME} --repository dev/hana-standin -o table
+
+
+Shows the tags under each repository (e.g., 0.1).
+
+Repeat for the demo/* repos if you like.
+
+FAQ / common gotchas
+
+Why “localhost/” in podman images?
+Podman marks images built locally with a localhost/ pseudo-registry. It’s normal. You can still tag them to any real registry.
+
+Do tags copy images?
+No—tags are just names. The actual upload happens on podman push.
+
+Do I need to create repos first in ACR?
+No. ACR creates them on first push.
+
+Token expired?
+Re-run the four login lines (the az login line only runs if you’re not already logged in).
+
+Case sensitivity:
+ACR names must be lowercase. Make sure $ACR_NAME is exactly aksdemoacr3.
+
+If you want, I can print the equivalent pull references you’ll use in Kubernetes/Helm next (for example: image: aksdemoacr3.azurecr.io/dev/java-ads-demo:0.1).
+
+
+CREATE CLUSTER
+
+az provider register --namespace Microsoft.OperationalInsights
+
+az aks create \
+  --resource-group aks-demo-rg \
+  --name aks-demo-cluster \
+  --node-count 2 \
+  --node-vm-size Standard_B2s \
+  --generate-ssh-keys \
+  --attach-acr aksdemoacr3 
+
+helm install sap4hana sap4hana-chart --namespace demo
+helm install java4adobe java4adobe-chart --namespace dev  
+
+kubectl get pods -n demo
+kubectl get pods -n dev
+kubectl get svc -n demo
+kubectl get svc -n dev
+kubectl get ingress -A 
+
+kubectl logs sap4hanna-chart-6586d6577c-rzb5q -n demo 
+
+podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
+
+
+destroy 
+
+az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
