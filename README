@@ -51,6 +51,9 @@ If you’re not logged in (command fails), the || runs the right-hand side: az l
 
 >/dev/null 2>&1 just hides normal and error output; we only care about success/failure.
 
+az acr create --resource-group aks-demo-rg --name aksdemoacr3 --sku Basic
+az acr login --name aksdemoacr3
+
 export ACR_NAME=aksdemoacr3
 
 
@@ -167,4 +170,10 @@ podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
 
 destroy 
 
-az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
+az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait 
+
+az acr repository delete --name aksdemoacr3 --repository demo/hana-standin --yes 
+
+az acr repository delete --name aksdemoacr3  --repository dev/java-ads-demo --yes 
+
+az acr delete --name aksdemoacr3 --resource-group aks-demo-rg
