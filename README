@@ -41,6 +41,14 @@ run the java and hanna build script
 
 Now run the following in the k1 container
 
+create acr
+
+az acr create \
+  --resource-group aks-demo-rg \
+  --name aksdemoacr3
+  --sku Standard \
+  --localtion central
+
 1) Log in to Azure and ACR
 az account show >/dev/null 2>&1 || az login --use-device-code
 
