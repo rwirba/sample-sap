@@ -76,4 +76,3 @@ EOS
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace
 WORKDIR /workspace
-CMD ["/bin/bash"]
