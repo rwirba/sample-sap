@@ -11,18 +11,28 @@ podman volume create k1-azure
 podman volume create k1-dbdata
 
 
+aks-toolkit
 
-podman run -d --name k1 --hostname k1 \
+podman volume create aks-toolkit-containers
+podman volume create aks-toolkit-workspace
+podman volume create aks-toolkit-trivy
+podman volume create aks-toolkit-m2
+podman volume create aks-toolkit-kube
+podman volume create aks-toolkit-azure
+podman volume create aks-toolkit-dbdata
+
+
+podman run -d --name aks-toolkit --hostname aks-toolkit \
   --privileged --network host \
-  -v k1-containers:/var/lib/containers \
-  -v k1-workspace:/workspace \
-  -v k1-trivy:/root/.cache/trivy \
-  -v k1-m2:/root/.m2 \
-  -v k1-kube:/root/.kube \
-  -v k1-azure:/root/.azure \
-  -v k1-dbdata:/data \
+  -v aks-toolkit-containers:/var/lib/containers \
+  -v aks-toolkit-workspace:/workspace \
+  -v aks-toolkit-trivy:/root/.cache/trivy \
+  -v aks-toolkit-m2:/root/.m2 \
+  -v aks-toolkit-kube:/root/.kube \
+  -v aks-toolkit-azure:/root/.azure \
+  -v aks-toolkit-dbdata:/data \
   --entrypoint /usr/bin/sleep \
-  k1:rhel9 infinity  
+  aks-toolkit:latest infinity  
 
 # Jump in
 podman exec -it k1 bash  
