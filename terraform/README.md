@@ -1,3 +1,9 @@
+Terraform setup
+
+Everything will run inside podman container
+
+create
+
 ## To deploy demo:
 
 ```bash 

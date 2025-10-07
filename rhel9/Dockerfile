@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM registry.access.redhat.com/ubi9/ubi
 
 # ---- Tool versions ----
 ARG KUBECTL_VER=1.30.5
@@ -7,30 +7,21 @@ ARG TRIVY_VER=0.51.4
 ARG KUBELOGIN_VER=0.0.33
 
 # ---- OS packages ----
-RUN apt-get update && apt-get install -y \
+RUN dnf install -y \
     podman buildah skopeo fuse-overlayfs slirp4netns crun conmon \
     git make jq tar gzip unzip curl wget ca-certificates openssl \
-    openjdk-17-jdk maven \
-    iproute2 iptables procps \
-    bash-completion \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+    java-17-openjdk-devel maven \
+    iproute iptables procps-ng \
+    bash-completion shadow-utils \
+  && dnf clean all
 
-RUN apt-get update && apt-get install -y \
-    curl unzip gnupg software-properties-common
-
-# Add HashiCorp GPG key and repo
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
-    > /etc/apt/sources.list.d/hashicorp.list
-
-# Install Terraform
-RUN apt-get update && apt-get install -y terraform
-
-# Verify
-RUN terraform -version  
+# ---- HashiCorp repo and Terraform ----
+RUN curl -fsSL https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo -o /etc/yum.repos.d/hashicorp.repo && \
+    dnf install -y terraform && \
+    terraform -version
 
 # ---- Azure CLI ----
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+RUN curl -sL https://aka.ms/InstallAzureCLIRpm | bash
 
 # ---- kubectl ----
 RUN curl -fsSL -o /usr/local/bin/kubectl \
@@ -85,7 +76,7 @@ echo "[acr-login] Getting access token for $LOGIN_SERVER ..."
 TOKEN="$(az acr login -n "$ACR_NAME" --expose-token --output tsv --query accessToken)"
 podman login "$LOGIN_SERVER" -u 00000000-0000-0000-0000-000000000000 -p "$TOKEN"
 echo "[acr-login] Podman is logged into $LOGIN_SERVER"
-EOS    
+EOS
 
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace

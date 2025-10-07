@@ -19,9 +19,10 @@ podman volume create aks-toolkit-trivy
 podman volume create aks-toolkit-m2
 podman volume create aks-toolkit-kube
 podman volume create aks-toolkit-azure
-podman volume create aks-toolkit-dbdata
+podman volume create aks-toolkit-dbdata 
+podman volume create terraform-state
 
-
+for ubuntu container
 podman run -d --name aks-toolkit --hostname aks-toolkit \
   --privileged --network host \
   -v aks-toolkit-containers:/var/lib/containers \
@@ -34,8 +35,25 @@ podman run -d --name aks-toolkit --hostname aks-toolkit \
   --entrypoint /usr/bin/sleep \
   aks-toolkit:latest infinity  
 
+For rhel-9 
+podman build -t aks-toolkit:rhel .
+
+podman run -d --name aks-toolkit --hostname aks-toolkit \
+  --privileged --network host \
+  -v aks-toolkit-containers:/var/lib/containers \
+  -v aks-toolkit-workspace:/workspace \
+  -v aks-toolkit-trivy:/root/.cache/trivy \
+  -v aks-toolkit-m2:/root/.m2 \
+  -v aks-toolkit-kube:/root/.kube \
+  -v aks-toolkit-azure:/root/.azure \
+  -v aks-toolkit-dbdata:/data \
+  -v terraform-state:/workspace/state \
+  --entrypoint /usr/bin/sleep \
+  aks-toolkit:rhel infinity
+
+
 # Jump in
-podman exec -it k1 bash  
+podman exec -it aks-toolkit:rhel bash  
 
 
 kubelogin --version
