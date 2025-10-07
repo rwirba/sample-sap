@@ -51,37 +51,10 @@ RUN curl -fsSL -o /tmp/kubelogin.zip \
     rm -f /tmp/kubelogin.zip && \
     /usr/local/bin/kubelogin --version
 
-# ---- aks-login.sh ----
-RUN cat > /usr/local/bin/aks-login.sh <<'EOS' && chmod +x /usr/local/bin/aks-login.sh
-#!/usr/bin/env bash
-set -euo pipefail
-if ! az account show >/dev/null 2>&1; then
-  echo "[aks-login] Launching device-code login..."
-  az login --use-device-code >/dev/null
-fi
-: "${SUBSCRIPTION_ID:?Set SUBSCRIPTION_ID}"
-: "${RESOURCE_GROUP:?Set RESOURCE_GROUP}"
-: "${AKS_NAME:?Set AKS_NAME}"
-az account set -s "$SUBSCRIPTION_ID"
-echo "[aks-login] Fetching kubeconfig for $AKS_NAME ..."
-az aks get-credentials -g "$RESOURCE_GROUP" -n "$AKS_NAME" --overwrite-existing
-echo "[aks-login] Converting kubeconfig for kubelogin (azurecli mode) ..."
-kubelogin convert-kubeconfig -l azurecli
-kubectl cluster-info
-kubectl get nodes -o wide
-EOS
-
-# ---- acr-login.sh ----
-RUN cat > /usr/local/bin/acr-login.sh <<'EOS' && chmod +x /usr/local/bin/acr-login.sh
-#!/usr/bin/env bash
-set -euo pipefail
-: "${ACR_NAME:?Set ACR_NAME (e.g., myregistry)}"
-LOGIN_SERVER="${ACR_NAME}.azurecr.io"
-echo "[acr-login] Getting access token for $LOGIN_SERVER ..."
-TOKEN="$(az acr login -n "$ACR_NAME" --expose-token --output tsv --query accessToken)"
-podman login "$LOGIN_SERVER" -u 00000000-0000-0000-0000-000000000000 -p "$TOKEN"
-echo "[acr-login] Podman is logged into $LOGIN_SERVER"
-EOS
+# ---- aks & acr login
+COPY aks-login.sh /usr/local/bin/aks-login.sh
+COPY acr-login.sh /usr/local/bin/acr-login.sh
+RUN chmod +x /usr/local/bin/aks-login.sh /usr/local/bin/acr-login.sh
 
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace
