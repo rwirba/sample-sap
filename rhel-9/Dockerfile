@@ -3,17 +3,17 @@ FROM registry.access.redhat.com/ubi9/ubi
 # ---- Tool versions ----
 ARG KUBECTL_VER=1.30.5
 ARG HELM_VER=3.15.3
-ARG TRIVY_VER=0.51.4
+ARG TRIVY_VER=0.61.1
 ARG KUBELOGIN_VER=0.0.33
 
 # ---- OS packages ----
-RUN dnf install -y \
+RUN dnf install -y --allowerasing \
     podman buildah skopeo fuse-overlayfs slirp4netns crun conmon \
     git make jq tar gzip unzip curl wget ca-certificates openssl \
     java-17-openjdk-devel maven \
     iproute iptables procps-ng \
-    bash-completion shadow-utils \
-  && dnf clean all
+    bash-completion shadow-utils && \
+    dnf clean all
 
 # ---- HashiCorp repo and Terraform ----
 RUN curl -fsSL https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo -o /etc/yum.repos.d/hashicorp.repo && \
