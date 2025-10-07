@@ -21,7 +21,12 @@ RUN curl -fsSL https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo -o /etc/yu
     terraform -version
 
 # ---- Azure CLI ----
-RUN curl -sL https://aka.ms/InstallAzureCLIRpm | bash
+# Add Microsoft repo and install Azure CLI
+RUN rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+    echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" \
+    > /etc/yum.repos.d/azure-cli.repo && \
+    dnf install -y azure-cli && \
+    az version
 
 # ---- kubectl ----
 RUN curl -fsSL -o /usr/local/bin/kubectl \
