@@ -25,6 +25,5 @@ variable "node_vm_size" {
 }
 
 variable "subscription_id" {
-  type = string
-  default = "fe1ba649-29eb-4b25-90a0-7edc20967616"
+  description = "Azure subscription ID"
 }
