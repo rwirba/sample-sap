@@ -28,6 +28,6 @@ variable "acr_id" {
   description = "ID of the ACR to assign AcrPull role"
 }
 
-variable "acr_id" {
-  description = "The full resource ID of the ACR"
-}
+# variable "acr_id" {
+#   description = "The full resource ID of the ACR"
+# }
