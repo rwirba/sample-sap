@@ -23,3 +23,8 @@ variable "node_vm_size" {
   type    = string
   default = "Standard_DS2_v2"
 }
+
+variable "subscription_id" {
+  type = string
+  default = "Azure subscription 1"
+}
