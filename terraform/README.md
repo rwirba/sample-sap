@@ -11,7 +11,7 @@ To sign in, use a web browser to open the page https://microsoft.com/devicelogin
 cd terraform/infra
 terraform init
 terraform plan -var-file="../config/demo.tfvars"
-terraform apply
+terraform apply -var-file="../config/demo.tfvars"
 ```
 
 ## To deploy dev:
