@@ -17,6 +17,10 @@ helm install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx --create-namespace \
   --set controller.service.type=LoadBalancer
 
+
+run command to find out the external ip of the ingress-controller
+kubectl get svc ingress-nginx-controller -n ingress-nginx
+
 kubectl create namespace demo
 
 helm install sap4hana sap4hana-chart --namespace demo
