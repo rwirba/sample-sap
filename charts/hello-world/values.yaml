@@ -16,5 +16,5 @@ ingress:
   tls: []  # Optional: add TLS config if using cert-manager  
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
