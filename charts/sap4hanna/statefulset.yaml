@@ -24,9 +24,8 @@ spec:
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:
-                secretKeyRef:
-                  name: {{ include "s4hanna.fullname" . }}-secret
-                  key: POSTGRES_PASSWORD
+                name: s4hanna-secret
+                key: POSTGRES_PASSWORD
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
