@@ -8,7 +8,7 @@ set -euo pipefail
 MODE="${MODE:-build}"  # "build" (default) or "pull"
 BUILD_DIR="${BUILD_DIR:-/workspace/hello-world}"
 IMAGE_NAME="${IMAGE_NAME:-hello-world}"
-IMAGE_TAG="${IMAGE_TAG:-v1}"
+IMAGE_TAG="${IMAGE_TAG:-v2}"
 ACR_NAME="aksdemoacr3"  # Your ACR name
 ACR_REPO="${IMAGE_NAME}"  # Optional subpath in ACR
 
