@@ -64,4 +64,8 @@ If you want to keep building on this:
 
 
 
-az aks get-credentials --resource-group rg-demo --name aks-demo-cluster
+az aks get-credentials --resource-group rg-demo --name aks-demo-cluster 
+
+
+kubectl run psql-test --image=postgres --rm -it --env="PGPASSWORD=StrongPassword123" -- \
+  psql -h ingress-nginx-controller.ingress-nginx -p 5432 -U postgres

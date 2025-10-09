@@ -1,0 +1,10 @@
+controller:
+  service:
+    type: LoadBalancer
+    extraPorts:
+      - name: pgsql
+        port: 5432
+        targetPort: 5432
+        protocol: TCP
+  extraArgs:
+    tcp-services-configmap: "ingress-nginx/tcp-services"
