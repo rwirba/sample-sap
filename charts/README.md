@@ -34,7 +34,9 @@ kubectl get ingress -A
 
 kubectl logs sap4hanna-chart-6586d6577c-rzb5q -n demo 
 
-podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
+kubectl create secret generic s4hanna-secret \
+  --namespace demo \
+  --from-literal=POSTGRES_PASSWORD=StrongPassword123
 
 
 

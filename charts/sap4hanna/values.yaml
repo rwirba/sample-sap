@@ -28,3 +28,11 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70    
+
+env:
+  - name: POSTGRES_PASSWORD
+    value: "StrongPassword123"  
+
+persistence:
+  size: 5Gi
+  storageClass: default
