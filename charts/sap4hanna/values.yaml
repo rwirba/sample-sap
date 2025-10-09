@@ -1,6 +1,6 @@
 image:
-  repository: aksdemoacr3.azurecr.io/demo/hana-standin
-  tag: "0.1"
+  repository: aksdemoacr3.azurecr.io/sap4hanna
+  tag: "latest"
   pullPolicy: Always
 
 service:

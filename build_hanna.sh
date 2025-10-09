@@ -7,8 +7,8 @@ set -euo pipefail
 
 MODE="${MODE:-standin}"  # "standin" (default) or "express-pull"
 BUILD_DIR="${BUILD_DIR:-/workspace/hana-standin}"
-IMAGE_NAME="${IMAGE_NAME:-hana-standin}"
-IMAGE_TAG="${IMAGE_TAG:-0.1}"
+IMAGE_NAME="${IMAGE_NAME:-sap4hana}"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
 ACR_NAME="aksdemoacr3"
 ACR_REPO="${IMAGE_NAME}"
 ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"

@@ -3,8 +3,8 @@ set -euo pipefail
 
 # --- knobs ---
 APP_DIR="${APP_DIR:-/workspace/java-ads-demo}"
-IMAGE_NAME="${IMAGE_NAME:-java-ads-demo}"
-IMAGE_TAG="${IMAGE_TAG:-0.1}"
+IMAGE_NAME="${IMAGE_NAME:-java-ads}"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
 ACR_NAME="aksdemoacr3"
 ACR_REPO="${IMAGE_NAME}"
 ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"

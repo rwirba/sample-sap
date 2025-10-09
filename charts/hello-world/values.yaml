@@ -1,6 +1,6 @@
 image:
   repository: aksdemoacr3.azurecr.io/hello-world
-  tag: v1
+  tag: latest
   pullPolicy: IfNotPresent
 
 ingress:

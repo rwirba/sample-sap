@@ -1,6 +1,6 @@
 image:
-  repository: aksdemoacr3.azurecr.io/dev/java-aks-demo
-  tag: "0.1"
+  repository: aksdemoacr3.azurecr.io/java-ads
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 service:
