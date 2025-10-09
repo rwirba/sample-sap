@@ -7,7 +7,7 @@ set -euo pipefail
 
 MODE="${MODE:-standin}"  # "standin" (default) or "express-pull"
 BUILD_DIR="${BUILD_DIR:-/workspace/hana-standin}"
-IMAGE_NAME="${IMAGE_NAME:-sap4hana}"
+IMAGE_NAME="${IMAGE_NAME:-sap4hanna}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 ACR_NAME="aksdemoacr3"
 ACR_REPO="${IMAGE_NAME}"
