@@ -1,0 +1,8 @@
+image:
+  repository: aksdemoacr3.azurecr.io/hello-world
+  tag: v1
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: hello-world
+description: Hello World Nginx app
+version: 0.1.0
