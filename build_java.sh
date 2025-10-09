@@ -1,4 +1,3 @@
-# Save inside k1 (e.g., /usr/local/bin/build_java_image.sh) and chmod +x it
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -6,6 +5,9 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/workspace/java-ads-demo}"
 IMAGE_NAME="${IMAGE_NAME:-java-ads-demo}"
 IMAGE_TAG="${IMAGE_TAG:-0.1}"
+ACR_NAME="aksdemoacr3"
+ACR_REPO="demo/${IMAGE_NAME}"
+ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"
 
 echo "[java] Scaffolding sources at: $APP_DIR"
 mkdir -p "$APP_DIR/src/main/java/com/example"
@@ -84,7 +86,10 @@ EOF
 echo "[java] Building image ${IMAGE_NAME}:${IMAGE_TAG} ..."
 podman build -t "${IMAGE_NAME}:${IMAGE_TAG}" .
 
-echo "[java] Built image:"
-podman images | awk 'NR==1 || $1 ~ /'"${IMAGE_NAME}"'/'
-echo "[java] To push later: podman tag ${IMAGE_NAME}:${IMAGE_TAG} <ACR_NAME>.azurecr.io/demo/${IMAGE_NAME}:${IMAGE_TAG}"
+echo "[java] Tagging for ACR..."
+podman tag "${IMAGE_NAME}:${IMAGE_TAG}" "${ACR_IMAGE}"
 
+echo "[java] Pushing to ACR..."
+podman push "${ACR_IMAGE}"
+
+echo "[java] ✅ Done. Image pushed to: ${ACR_IMAGE}"
