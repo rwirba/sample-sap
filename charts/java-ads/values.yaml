@@ -14,13 +14,14 @@ serviceAccount:
 ingress:
   enabled: true
   className: nginx
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: java4adobe.local
+    - host: java-ads.mitechnology.org
       paths:
         - path: /
           pathType: Prefix
-  tls: [] 
+  tls: []  # Optional: add TLS config if using cert-manager
 
 autoscaling:
   enabled: false

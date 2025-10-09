@@ -8,6 +8,15 @@ if you hit error install python dependency with
 
 sudo dnf or apt install python3-cffi 
 
+install nginx ingress controller
+
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx --create-namespace \
+  --set controller.service.type=LoadBalancer
+
 kubectl create namespace demo
 
 helm install sap4hana sap4hana-chart --namespace demo
