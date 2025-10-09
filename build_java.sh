@@ -6,7 +6,7 @@ APP_DIR="${APP_DIR:-/workspace/java-ads-demo}"
 IMAGE_NAME="${IMAGE_NAME:-java-ads-demo}"
 IMAGE_TAG="${IMAGE_TAG:-0.1}"
 ACR_NAME="aksdemoacr3"
-ACR_REPO="demo/${IMAGE_NAME}"
+ACR_REPO="${IMAGE_NAME}"
 ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"
 
 echo "[java] Scaffolding sources at: $APP_DIR"

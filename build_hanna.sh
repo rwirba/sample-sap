@@ -10,7 +10,7 @@ BUILD_DIR="${BUILD_DIR:-/workspace/hana-standin}"
 IMAGE_NAME="${IMAGE_NAME:-hana-standin}"
 IMAGE_TAG="${IMAGE_TAG:-0.1}"
 ACR_NAME="aksdemoacr3"
-ACR_REPO="demo/${IMAGE_NAME}"
+ACR_REPO="${IMAGE_NAME}"
 ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"
 
 if [[ "$MODE" == "standin" ]]; then
