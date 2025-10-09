@@ -69,3 +69,20 @@ az aks get-credentials --resource-group rg-demo --name aks-demo-cluster
 
 kubectl run psql-test --image=postgres --rm -it --env="PGPASSWORD=StrongPassword123" -- \
   psql -h ingress-nginx-controller.ingress-nginx -p 5432 -U postgres
+
+
+  kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
+
+  run this to force patch to tcp
+  kubectl patch svc ingress-nginx-controller -n ingress-nginx --type='json' -p='[
+  {
+    "op": "add",
+    "path": "/spec/ports/-",
+    "value": {
+      "name": "pgsql",
+      "port": 5432,
+      "targetPort": 5432,
+      "protocol": "TCP"
+    }
+  }
+]'

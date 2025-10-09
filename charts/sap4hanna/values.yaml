@@ -32,3 +32,6 @@ autoscaling:
 persistence:
   size: 5Gi
   storageClass: default
+
+postgresql:
+  postgresqlListenAddresses: '*'  
