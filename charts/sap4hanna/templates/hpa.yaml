@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "sap4hanna-chart.fullname" . }}
+  name: {{ include "s4hanna.fullname" . }}
   labels:
-    {{- include "sap4hanna-chart.labels" . | nindent 4 }}
+    {{- include "s4hanna.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "sap4hanna-chart.fullname" . }}
+    name: {{ include "s4hanna.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
