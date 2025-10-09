@@ -21,17 +21,13 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-  tls: []  # Optional: add TLS config if using cert-manager
+  tls: []  
 
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70    
-
-env:
-  - name: POSTGRES_PASSWORD
-    value: "StrongPassword123"  
 
 persistence:
   size: 5Gi
