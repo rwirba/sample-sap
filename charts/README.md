@@ -14,8 +14,13 @@ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo update
 
 helm install ingress-nginx ingress-nginx/ingress-nginx \
-  --namespace ingress-nginx --create-namespace \
-  --set controller.service.type=LoadBalancer
+  --namespace ingress-nginx \
+  --set controller.service.type=LoadBalancer \
+  --set controller.extraArgs.tcp-services-configmap="ingress-nginx/tcp-services" \
+  --set controller.service.extraPorts[0].name=pgsql \
+  --set controller.service.extraPorts[0].port=5432 \
+  --set controller.service.extraPorts[0].targetPort=5432 \
+  --set controller.service.extraPorts[0].protocol=TCP
 
 
 run command to find out the external ip of the ingress-controller
@@ -56,3 +61,7 @@ If you want to keep building on this:
 •  ✅ Create a Service and Ingress to expose PostgreSQL (if needed)
 •  ✅ Add volume snapshot support for backup/restore
 •  ✅ Parameterize database name, user, and port in values.yaml
+
+
+
+az aks get-credentials --resource-group rg-demo --name aks-demo-cluster
