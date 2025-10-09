@@ -4,4 +4,4 @@ metadata:
   name: tcp-services
   namespace: ingress-nginx
 data:
-  5432: "demo/sap4hanna:5432"
+  5432: "demo/s4hanna:5432"
