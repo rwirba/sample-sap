@@ -22,10 +22,11 @@ spec:
           ports:
             - containerPort: 5432
           env:
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                name: s4hanna-secret
-                key: POSTGRES_PASSWORD
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: s4hanna-secret
+              key: POSTGRES_PASSWORD
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
