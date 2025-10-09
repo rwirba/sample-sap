@@ -10,7 +10,7 @@ BUILD_DIR="${BUILD_DIR:-/workspace/hello-world}"
 IMAGE_NAME="${IMAGE_NAME:-hello-world}"
 IMAGE_TAG="${IMAGE_TAG:-v1}"
 ACR_NAME="aksdemoacr3"  # Your ACR name
-ACR_REPO="demo/${IMAGE_NAME}"  # Optional subpath in ACR
+ACR_REPO="${IMAGE_NAME}"  # Optional subpath in ACR
 
 ACR_IMAGE="${ACR_NAME}.azurecr.io/${ACR_REPO}:${IMAGE_TAG}"
 
