@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "java4adobe-chart.fullname" . }}
+  name: {{ include "java-ads.fullname" . }}
   labels:
-    {{- include "java4adobe-chart.labels" . | nindent 4 }}
+    {{- include "java-ads.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "java4adobe-chart.fullname" . }}
+    name: {{ include "java-ads.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
