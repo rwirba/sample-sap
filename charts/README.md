@@ -45,3 +45,14 @@ some errors you might run into
 helm upgrade s4hanna . --namespace demo
 Error: UPGRADE FAILED: failed to create resource: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: host "sap4hanna.mitechnology.org" and path "/" is already defined in ingress demo/sap4hanna-chart-ingress
 [root@aks-toolkit sap4hanna]# kubectl delete ingress sap4hanna-chart-ingress -n demo
+
+
+
+
+If you want to keep building on this:
+
+•  ✅ Add a readinessProbe to ensure traffic only hits healthy pods
+•  ✅ Wire in TLS with cert-manager for secure ingress
+•  ✅ Create a Service and Ingress to expose PostgreSQL (if needed)
+•  ✅ Add volume snapshot support for backup/restore
+•  ✅ Parameterize database name, user, and port in values.yaml
