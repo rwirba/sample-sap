@@ -12,7 +12,7 @@ ingress:
     - host: hello-world.mitechnology.org
       paths:
         - path: /
-          pathType: Prefix
+          pathType: Exact
   tls: []  # Optional: add TLS config if using cert-manager  
 
 service:

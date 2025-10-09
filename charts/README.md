@@ -86,3 +86,11 @@ kubectl run psql-test --image=postgres --rm -it --env="PGPASSWORD=StrongPassword
     }
   }
 ]'
+
+ Add a Default Backend to NGINX
+
+This catches unmatched traffic:
+
+helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --set controller.defaultBackend.enabled=true
