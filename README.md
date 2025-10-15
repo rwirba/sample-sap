@@ -5,7 +5,7 @@ This guide walks through building a containerized AKS toolkit using Podman, push
 
 ---
 
-## 🔧 Build Base Image
+##  Build Base Image
 
 ```bash
 podman build -t k1:rhel9 .
@@ -13,7 +13,7 @@ podman build -t k1:rhel9 .
 
 ---
 
-## 📦 Create Persistent Volumes
+##  Create Persistent Volumes
 
 ```bash
 # General volumes
@@ -38,7 +38,7 @@ podman volume create terraform-state
 
 ---
 
-## 🚀 Run AKS Toolkit Container
+##  Run AKS Toolkit Container
 
 ### Ubuntu-based
 
@@ -85,7 +85,7 @@ podman exec -it aks-toolkit bash
 
 ---
 
-## ✅ Verify Tool Versions
+## Verify Tool Versions
 
 ```bash
 kubelogin --version
@@ -97,7 +97,7 @@ trivy --version
 
 ---
 
-## 🏗️ Build Application Images
+##  Build Application Images
 
 Run the following scripts inside the container:
 
@@ -108,7 +108,7 @@ Run the following scripts inside the container:
 
 ---
 
-## 🔐 Authenticate with Azure & ACR
+##  Authenticate with Azure & ACR
 
 ```bash
 az account show >/dev/null 2>&1 || az login --use-device-code
@@ -125,7 +125,7 @@ podman login ${ACR_NAME}.azurecr.io \
 
 ---
 
-## 🏷️ Tag Images for ACR
+##  Tag Images for ACR
 
 ```bash
 # dev
@@ -139,7 +139,7 @@ podman tag localhost/hana-standin:0.1   ${ACR_NAME}.azurecr.io/demo/hana-standin
 
 ---
 
-## 📤 Push Images to ACR
+##  Push Images to ACR
 
 ```bash
 podman push ${ACR_NAME}.azurecr.io/dev/java-ads-demo:0.1
@@ -150,7 +150,7 @@ podman push ${ACR_NAME}.azurecr.io/demo/hana-standin:0.1
 
 ---
 
-## 🔍 Verify ACR Upload
+##  Verify ACR Upload
 
 ```bash
 az acr repository list -n ${ACR_NAME} -o table
@@ -177,7 +177,7 @@ az aks create \
 
 ---
 
-## 🚀 Deploy Helm Charts
+##  Deploy Helm Charts
 
 ```bash
 helm install sap4hana sap4hana-chart --namespace demo
@@ -186,7 +186,7 @@ helm install java4adobe java4adobe-chart --namespace dev
 
 ---
 
-## 🔎 Inspect Cluster Resources
+##  Inspect Cluster Resources
 
 ```bash
 kubectl get pods -n demo
@@ -200,7 +200,7 @@ kubectl logs <pod-name> -n demo
 
 ---
 
-## 🧪 Local PostgreSQL Test (Optional)
+##  Local PostgreSQL Test (Optional)
 
 ```bash
 podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
@@ -208,7 +208,7 @@ podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
 
 ---
 
-## 🧹 Cleanup
+##  Cleanup
 
 az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
 
