@@ -161,7 +161,7 @@ az acr repository show-tags -n ${ACR_NAME} --repository dev/hana-standin -o tabl
 
 ---
 
-## ☁️ Create AKS Cluster
+## Create AKS Cluster
 
 ```bash
 az provider register --namespace Microsoft.OperationalInsights
@@ -210,7 +210,6 @@ podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
 
 ## 🧹 Cleanup
 
-```bash
 az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
 
 az acr repository delete --name aksdemoacr3 --repository demo/hana-standin --yes
