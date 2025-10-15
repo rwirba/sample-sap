@@ -1,7 +1,22 @@
-# Rebuild
-podman build -t k1:rhel9 .
 
-# Create persistent volumes once
+# AKS Toolkit with Podman, Helm, and Azure ACR
+
+This guide walks through building a containerized AKS toolkit using Podman, pushing images to Azure Container Registry (ACR), and deploying to Azure Kubernetes Service (AKS).
+
+---
+
+## 🔧 Build Base Image
+
+```bash
+podman build -t k1:rhel9 .
+```
+
+---
+
+## 📦 Create Persistent Volumes
+
+```bash
+# General volumes
 podman volume create k1-containers
 podman volume create k1-workspace
 podman volume create k1-trivy
@@ -10,19 +25,24 @@ podman volume create k1-kube
 podman volume create k1-azure
 podman volume create k1-dbdata
 
-##
-aks-toolkit
-
+# AKS Toolkit volumes
 podman volume create aks-toolkit-containers
 podman volume create aks-toolkit-workspace
 podman volume create aks-toolkit-trivy
 podman volume create aks-toolkit-m2
 podman volume create aks-toolkit-kube
 podman volume create aks-toolkit-azure
-podman volume create aks-toolkit-dbdata 
+podman volume create aks-toolkit-dbdata
 podman volume create terraform-state
+```
 
-for ubuntu container
+---
+
+## 🚀 Run AKS Toolkit Container
+
+### Ubuntu-based
+
+```bash
 podman run -d --name aks-toolkit --hostname aks-toolkit \
   --privileged --network host \
   -v aks-toolkit-containers:/var/lib/containers \
@@ -33,9 +53,12 @@ podman run -d --name aks-toolkit --hostname aks-toolkit \
   -v aks-toolkit-azure:/root/.azure \
   -v aks-toolkit-dbdata:/data \
   --entrypoint /usr/bin/sleep \
-  aks-toolkit:latest infinity  
+  aks-toolkit:latest infinity
+```
 
-For rhel-9 
+### RHEL 9-based
+
+```bash
 podman build -t aks-toolkit:rhel .
 
 podman run -d --name aks-toolkit --hostname aks-toolkit \
@@ -50,128 +73,97 @@ podman run -d --name aks-toolkit --hostname aks-toolkit \
   -v terraform-state:/workspace/state \
   --entrypoint /usr/bin/sleep \
   aks-toolkit:rhel infinity
+```
 
+---
 
-# Jump in
-podman exec -it aks-toolkit:rhel bash  
+## 🛠️ Enter the Container
 
+```bash
+podman exec -it aks-toolkit bash
+```
 
+---
+
+## ✅ Verify Tool Versions
+
+```bash
 kubelogin --version
 az --version | head -n 3
 kubectl version --client --output=yaml | grep gitVersion
 helm version
-trivy --version 
+trivy --version
+```
 
+---
 
-BUILD IMAGES
+## 🏗️ Build Application Images
 
-run the java and hanna build script
+Run the following scripts inside the container:
 
-Now run the following in the k1 container
+```bash
+./build_java.sh
+./build_hanna.sh
+```
 
-1) Log in to Azure and ACR
+---
+
+## 🔐 Authenticate with Azure & ACR
+
+```bash
 az account show >/dev/null 2>&1 || az login --use-device-code
-
-
-Tries to print your current Azure login (az account show).
-
-If you’re not logged in (command fails), the || runs the right-hand side: az login --use-device-code, which shows a short code. Paste that code in the browser once to authenticate.
-
->/dev/null 2>&1 just hides normal and error output; we only care about success/failure.
 
 az acr create --resource-group aks-demo-rg --name aksdemoacr3 --sku Basic
 az acr login --name aksdemoacr3
 
 export ACR_NAME=aksdemoacr3
-
-
-Saves your Azure Container Registry short name in an env var so you can reuse it.
-
-Your registry’s full hostname will be ${ACR_NAME}.azurecr.io → aksdemoacr3.azurecr.io.
-
 TOKEN=$(az acr login -n "$ACR_NAME" --expose-token -o tsv --query accessToken)
-
-
-Asks Azure for a short-lived access token to your ACR (this does not store Docker/Podman creds by itself).
-
---expose-token returns an OAuth token instead of doing a full docker login.
-
--o tsv --query accessToken extracts just the token string and saves it to TOKEN.
 
 podman login ${ACR_NAME}.azurecr.io \
   -u 00000000-0000-0000-0000-000000000000 -p "$TOKEN"
+```
 
+---
 
-Logs Podman into your registry using that short-lived token.
+## 🏷️ Tag Images for ACR
 
-The username must be that all-zeros GUID when you use token-based ACR auth (that’s by design).
-
-After this, Podman can push/pull to aksdemoacr3.azurecr.io until the token expires.
-
-2) Tag your local images with ACR destinations
+```bash
+# dev
 podman tag localhost/java-ads-demo:0.1  ${ACR_NAME}.azurecr.io/dev/java-ads-demo:0.1
 podman tag localhost/hana-standin:0.1   ${ACR_NAME}.azurecr.io/dev/hana-standin:0.1
+
+# demo
 podman tag localhost/java-ads-demo:0.1  ${ACR_NAME}.azurecr.io/demo/java-ads-demo:0.1
 podman tag localhost/hana-standin:0.1   ${ACR_NAME}.azurecr.io/demo/hana-standin:0.1
+```
 
+---
 
-podman tag SRC DST creates additional names for the same local image. No data moves yet.
+## 📤 Push Images to ACR
 
-localhost/... is how Podman shows images built locally (no registry).
-
-...azurecr.io/dev/... and ...azurecr.io/demo/... are the destinations you’ll push to.
-
-Using dev/ and demo/ as repository prefixes neatly separates environments inside the same registry. (ACR will auto-create these repos on first push.)
-
-3) Push images to ACR
+```bash
 podman push ${ACR_NAME}.azurecr.io/dev/java-ads-demo:0.1
 podman push ${ACR_NAME}.azurecr.io/dev/hana-standin:0.1
 podman push ${ACR_NAME}.azurecr.io/demo/java-ads-demo:0.1
 podman push ${ACR_NAME}.azurecr.io/demo/hana-standin:0.1
+```
 
+---
 
-Uploads the image layers and tags to ACR.
+## 🔍 Verify ACR Upload
 
-If a repo (e.g., dev/java-ads-demo) doesn’t exist yet, ACR creates it automatically.
-
-If you see 401 Unauthorized, your token likely expired—just rerun the login lines.
-
-4) Verify in the registry
+```bash
 az acr repository list -n ${ACR_NAME} -o table
 
-
-Lists repositories now present in ACR. You should see dev/java-ads-demo, demo/java-ads-demo, dev/hana-standin, demo/hana-standin.
-
-az acr repository show-tags -n ${ACR_NAME} --repository dev/java-ads-demo  -o table
+az acr repository show-tags -n ${ACR_NAME} --repository dev/java-ads-demo -o table
 az acr repository show-tags -n ${ACR_NAME} --repository dev/hana-standin -o table
+```
 
+---
 
-Shows the tags under each repository (e.g., 0.1).
+## ☁️ Create AKS Cluster
 
-Repeat for the demo/* repos if you like.
-
-FAQ / common gotchas
-
-Why “localhost/” in podman images?
-Podman marks images built locally with a localhost/ pseudo-registry. It’s normal. You can still tag them to any real registry.
-
-Do tags copy images?
-No—tags are just names. The actual upload happens on podman push.
-
-Do I need to create repos first in ACR?
-No. ACR creates them on first push.
-
-Token expired?
-Re-run the four login lines (the az login line only runs if you’re not already logged in).
-
-Case sensitivity:
-ACR names must be lowercase. Make sure $ACR_NAME is exactly aksdemoacr3.
-
-If you want, I can print the equivalent pull references you’ll use in Kubernetes/Helm next (for example: image: aksdemoacr3.azurecr.io/dev/java-ads-demo:0.1).
-
-
-CREATE CLUSTER
-
+```bash
 az provider register --namespace Microsoft.OperationalInsights
 
 az aks create \
@@ -180,28 +172,52 @@ az aks create \
   --node-count 2 \
   --node-vm-size Standard_B2s \
   --generate-ssh-keys \
-  --attach-acr aksdemoacr3 
+  --attach-acr aksdemoacr3
+```
 
+---
+
+## 🚀 Deploy Helm Charts
+
+```bash
 helm install sap4hana sap4hana-chart --namespace demo
-helm install java4adobe java4adobe-chart --namespace dev  
+helm install java4adobe java4adobe-chart --namespace dev
+```
 
+---
+
+## 🔎 Inspect Cluster Resources
+
+```bash
 kubectl get pods -n demo
 kubectl get pods -n dev
 kubectl get svc -n demo
 kubectl get svc -n dev
-kubectl get ingress -A 
+kubectl get ingress -A
 
-kubectl logs sap4hanna-chart-6586d6577c-rzb5q -n demo 
+kubectl logs <pod-name> -n demo
+```
 
+---
+
+## 🧪 Local PostgreSQL Test (Optional)
+
+```bash
 podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
+```
 
+---
 
-destroy 
+## 🧹 Cleanup
 
-az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait 
+```bash
+az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
 
-az acr repository delete --name aksdemoacr3 --repository demo/hana-standin --yes 
-
-az acr repository delete --name aksdemoacr3  --repository dev/java-ads-demo --yes 
+az acr repository delete --name aksdemoacr3 --repository demo/hana-standin --yes
+az acr repository delete --name aksdemoacr3 --repository dev/java-ads-demo --yes
 
 az acr delete --name aksdemoacr3 --resource-group aks-demo-rg
+```
+
+---
+```
