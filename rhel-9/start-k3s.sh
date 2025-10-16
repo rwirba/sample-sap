@@ -3,11 +3,16 @@ set -e
 
 echo "Starting K3s with fuse-overlayfs..."
 export CONTAINERD_SNAPSHOTTER=fuse-overlayfs
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 k3s server --disable traefik --tls-san 127.0.0.1 &
 
-sleep 5
 echo "Waiting for Kubernetes API to be ready..."
-kubectl get nodes || true
+until kubectl get nodes &>/dev/null; do
+  sleep 2
+done
+
+kubectl get nodes
+kubectl get pods -A
 
 exec /bin/bash
