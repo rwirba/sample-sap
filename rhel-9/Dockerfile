@@ -61,11 +61,11 @@ RUN curl -fsSL https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s -o
     chmod +x /usr/local/bin/k3s && \
     mkdir -p /etc/rancher/k3s /var/lib/rancher/k3s /var/lib/kubelet /etc/kubernetes
 
-COPY start-k3s.sh /usr/local/bin/start-k3s.sh
-RUN chmod +x /usr/local/bin/start-k3s.sh
+COPY start-k8s.sh /usr/local/bin/start-k8s.sh
+RUN chmod +x /usr/local/bin/start-k8s.sh
 
 
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace
 WORKDIR /workspace
-CMD ["/usr/local/bin/start-k3s.sh"]    
+CMD ["/usr/local/bin/start-k8s.sh"]    
