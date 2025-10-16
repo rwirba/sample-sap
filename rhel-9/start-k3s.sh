@@ -10,4 +10,5 @@ exec k3s server \
   --tls-san 127.0.0.1 \
   --kubelet-arg="feature-gates=KubeletInUserNamespace=true" \
   --kubelet-arg="cgroups-per-qos=false" \
-  --kubelet-arg="cgroup-root=/"
+  --kubelet-arg="cgroup-root=/" \
+  --kubelet-arg="enforce-node-allocatable="
