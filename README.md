@@ -208,7 +208,8 @@ podman run -d --network=host -e POSTGRES_PASSWORD=demo123 hana-standin:0.1
 
 ---
 
-##  Cleanup
+## 
+ Cleanup
 
 az aks delete --name aks-demo-cluster --resource-group aks-demo-rg --yes --no-wait
 

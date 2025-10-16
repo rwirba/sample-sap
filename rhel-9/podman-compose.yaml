@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  k8s-dev:
+    image: your-k8s-image:latest
+    container_name: k8s-dev
+    privileged: true
+    ports:
+      - "6443:6443"   # Kubernetes API
+      - "80:80"       # Ingress HTTP
+      - "443:443"     # Ingress HTTPS
+    volumes:
+      - k3s-state:/var/lib/rancher/k3s
+      - k3s-config:/etc/rancher/k3s
+      - kubelet:/var/lib/kubelet
+      - k8s-certs:/etc/kubernetes
+    environment:
+      - KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+    working_dir: /workspace
+    command: ["/usr/local/bin/start-k3s.sh"]
+
+volumes:
+  k3s-state:
+  k3s-config:
+  kubelet:
+  k8s-certs:
