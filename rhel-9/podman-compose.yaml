@@ -7,8 +7,8 @@ services:
     privileged: true
     ports:
       - "6443:6443"   # Kubernetes API
-      - "80:80"       # Ingress HTTP
-      - "443:443"     # Ingress HTTPS
+      - "8080:80"       # Ingress HTTP
+      - "8443:443"     # Ingress HTTPS
     volumes:
       - k8s-state:/var/lib/rancher/k8s
       - k8s-config:/etc/rancher/k8s
