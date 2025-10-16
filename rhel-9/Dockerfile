@@ -31,7 +31,7 @@ RUN rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
 
 # ---- kubectl ----
 RUN curl -fsSL -o /usr/local/bin/kubectl \
-    https://dl.k8s.io/release/v${KUBECTL_VER}/bin/linux/amd64/kubectl && \
+    https://dl.k3s.io/release/v${KUBECTL_VER}/bin/linux/amd64/kubectl && \
     chmod +x /usr/local/bin/kubectl
 
 # ---- helm ----
@@ -61,11 +61,11 @@ RUN curl -fsSL https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s -o
     chmod +x /usr/local/bin/k3s && \
     mkdir -p /etc/rancher/k3s /var/lib/rancher/k3s /var/lib/kubelet /etc/kubernetes
 
-COPY start-k8s.sh /usr/local/bin/start-k8s.sh
-RUN chmod +x /usr/local/bin/start-k8s.sh
+COPY start-k3s.sh /usr/local/bin/start-k3s.sh
+RUN chmod +x /usr/local/bin/start-k3s.sh
 
 
 # ---- QoL ----
 RUN mkdir -p /workspace && chmod 0777 /workspace
 WORKDIR /workspace
-CMD ["/usr/local/bin/start-k8s.sh"]    
+CMD ["/usr/local/bin/start-k3s.sh"]    
