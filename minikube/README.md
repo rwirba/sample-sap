@@ -1,10 +1,11 @@
-#  Local Kubernetes Demo Setup with Minikube
 
-This guide walks you through setting up a fully functional Kubernetes cluster using Minikube on **macOS** or **Windows**, with ingress routing, sample apps, and 404 fallback — perfect for demos and testing.
+#  Local Kubernetes Demo Setup (Minikube + Podman Desktop)
+
+This guide walks you through setting up a fully functional Kubernetes cluster using Minikube on **macOS**, **Windows**, or **Podman Desktop**, with ingress routing, sample apps, and 404 fallback 
 
 ---
 
-##  macOS Setup
+##  macOS Setup (Minikube + Docker)
 
 ###  Prerequisites
 
@@ -23,7 +24,7 @@ This guide walks you through setting up a fully functional Kubernetes cluster us
 
 ---
 
-##  Windows Setup
+##  Windows Setup (Minikube + Docker Desktop)
 
 ###  Prerequisites
 
@@ -44,11 +45,28 @@ This guide walks you through setting up a fully functional Kubernetes cluster us
 
 ---
 
-##  Start Minikube
+##  macOS Setup (Minikube + Podman Desktop)
 
-```bash
-minikube start --driver=docker --kubernetes-version=v1.30.1
-```
+###  Prerequisites
+
+1. **Install Podman Desktop**  
+   [Download here](https://podman.io/getting-started/installation)
+
+2. **Install Minikube and kubectl**:
+   ```bash
+   brew install minikube kubectl
+   ```
+
+3. **Start Podman VM** (required for Linux container runtime):
+   ```bash
+   podman machine init
+   podman machine start
+   ```
+
+4. **Start Minikube with Podman driver**:
+   ```bash
+   minikube start --driver=podman --kubernetes-version=v1.30.1
+   ```
 
 ---
 
@@ -65,7 +83,7 @@ Expected output:
 
 ---
 
-## Enable Ingress
+##  Enable Ingress
 
 ```bash
 minikube addons enable ingress
@@ -175,12 +193,12 @@ helm install cert-manager jetstack/cert-manager \
 
 ```bash
 minikube delete
-minikube start --driver=docker
+minikube start --driver=podman
 ```
 
 ---
 
-##  You're Demo-Ready!
+## You're Demo-Ready!
 
 You now have:
 - A working Kubernetes cluster
@@ -190,6 +208,3 @@ You now have:
 
 ```
 
----
-
-Let me know if you want this turned into a GitHub repo scaffold or if you'd like to add Helm charts, PostgreSQL, or TLS secrets next.
