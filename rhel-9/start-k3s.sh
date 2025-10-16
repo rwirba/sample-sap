@@ -13,5 +13,4 @@ exec k3s server \
   --kubelet-arg="cgroup-root=/" \
   --kubelet-arg="enforce-node-allocatable=" \
   --kubelet-arg="runtime-cgroups=" \
-  --kubelet-arg="kubelet-cgroups=" \
-  --kubelet-arg="systemd-cgroup=false"
+  --kubelet-arg="kubelet-cgroups="
