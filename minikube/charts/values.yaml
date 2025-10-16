@@ -1,0 +1,21 @@
+replicaCount: 1
+
+image:
+  repository: nginxdemos/hello
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: hello.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
