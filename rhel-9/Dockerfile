@@ -5,7 +5,7 @@ ARG KUBECTL_VER=1.30.5
 ARG HELM_VER=3.15.3
 ARG TRIVY_VER=0.61.1
 ARG KUBELOGIN_VER=0.0.33
-ARG k8s_VER=v1.30.1+k8s1
+ARG K3S_VER=v1.30.1+k3s1
 
 # ---- OS packages ----
 RUN dnf install -y --allowerasing \
@@ -57,9 +57,9 @@ COPY aks-login.sh /usr/local/bin/aks-login.sh
 COPY acr-login.sh /usr/local/bin/acr-login.sh
 RUN chmod +x /usr/local/bin/aks-login.sh /usr/local/bin/acr-login.sh
 
-RUN curl -fsSL https://github.com/k8s-io/k8s/releases/download/${k8s_VER}/k8s -o /usr/local/bin/k8s && \
-    chmod +x /usr/local/bin/k8s && \
-    mkdir -p /etc/rancher/k8s /var/lib/rancher/k8s /var/lib/kubelet /etc/kubernetes
+RUN curl -fsSL https://github.com/k3s-io/k3s/releases/download/${K3S_VER}/k3s -o /usr/local/bin/k3s && \
+    chmod +x /usr/local/bin/k3s && \
+    mkdir -p /etc/rancher/k3s /var/lib/rancher/k3s /var/lib/kubelet /etc/kubernetes
 
 COPY start-k3s.sh /usr/local/bin/start-k3s.sh
 RUN chmod +x /usr/local/bin/start-k3s.sh
