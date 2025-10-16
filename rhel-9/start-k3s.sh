@@ -4,7 +4,7 @@ set -e
 export CONTAINERD_SNAPSHOTTER=fuse-overlayfs
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-echo "Starting K3s with container-safe runtime and cgroup settings..."
+echo "Starting K3s with container-safe kubelet args..."
 exec k3s server \
   --disable traefik \
   --tls-san 127.0.0.1 \
@@ -12,7 +12,6 @@ exec k3s server \
   --kubelet-arg="cgroups-per-qos=false" \
   --kubelet-arg="cgroup-root=/" \
   --kubelet-arg="enforce-node-allocatable=" \
-  --kubelet-arg="container-runtime-endpoint=unix:///run/k3s/containerd/containerd.sock" \
   --kubelet-arg="runtime-cgroups=" \
   --kubelet-arg="kubelet-cgroups=" \
   --kubelet-arg="systemd-cgroup=false"
