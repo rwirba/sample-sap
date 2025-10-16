@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  k3s-dev:
-    image: k3s-dev-image:latest
-    container_name: k3s-dev
+  k8s-dev:
+    image: k8s-dev-image:latest
+    container_name: k8s-dev
     privileged: true
     ports:
       - "6443:6443"   # Kubernetes API
