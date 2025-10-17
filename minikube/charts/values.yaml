@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: nginxdemos/hello
+  repository: hello-world
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -12,10 +12,10 @@ service:
 ingress:
   enabled: true
   className: nginx
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
     - host: hello.local
       paths:
         - path: /
           pathType: Prefix
-  tls: []

@@ -221,3 +221,22 @@ az acr delete --name aksdemoacr3 --resource-group aks-demo-rg
 
 ---
 ```
+
+
+📌 Flow Notes:
+
+1. GitHub – Source code repository with Dockerfiles per app.
+2. CI Orchestrator – Jenkins or GitHub Actions:
+   • Pulls code
+   • Builds Docker images
+   • Tags images
+   • Runs Trivy for vulnerability scans
+   • Optionally runs SonarQube for code quality
+   • Stores scan results (e.g., in S3, Azure Blob, or artifact store)
+3. Azure Container Registry (ACR) – Stores tagged and scanned images.
+
+Optional Enhancements:
+• Snyk – Additional security scanning
+• Slack/MS Teams – Notifications
+• Vault or Azure Key Vault – Secrets management
+• Pre-commit hooks – Linting and policy enforcement

@@ -196,15 +196,79 @@ minikube delete
 minikube start --driver=podman
 ```
 
+
 ---
 
-## You're Demo-Ready!
+## 🚀 Helm Deployment Steps (Local Minikube)
 
-You now have:
-- A working Kubernetes cluster
-- Ingress routing with host-based rules
-- Sample apps deployed
-- 404 fallback and optional TLS support
+### 1. Package and install the chart
+```bash
+cd charts/hello-world
+helm install hello-world ./
+```
 
+### 2. Verify resources
+```bash
+kubectl get all
+```
+
+### 3. Enable ingress (if not already)
+```bash
+minikube addons enable ingress
+```
+
+### 4. Add host entry
+Edit `/etc/hosts`:
+```
+127.0.0.1 hello.local
+```
+
+### 5. Test the app
+```bash
+curl http://hello.local
+```
+
+---
+
+
+##  Deploy with Helm (hello-world)
+
+###  Folder Structure
+```
+charts/
+└── hello-world/
+    ├── Chart.yaml
+    ├── values.yaml
+    └── templates/
+        ├── deployment.yaml
+        ├── service.yaml
+        └── ingress.yaml
+```
+
+### Deploy Locally
+```bash
+cd charts/hello-world
+helm install hello-world ./
+```
+
+###  Verify
+```bash
+kubectl get all
+```
+
+### Enable Ingress
+```bash
+minikube addons enable ingress
+```
+
+### Add Host Entry
+Edit `/etc/hosts`:
+```
+127.0.0.1 hello.local
+```
+
+### Test
+```bash
+curl http://hello.local
 ```
 
