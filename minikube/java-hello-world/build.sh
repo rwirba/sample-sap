@@ -5,6 +5,7 @@ set -e
 APP_NAME="java-hello-world"
 DOCKER_USER="ryandevlab"
 IMAGE_TAG="1.0.0"
+JAR_NAME="java-hello-world-1.0.0.jar"
 
 echo "🔧 Building Java app with Maven..."
 mvn clean package
