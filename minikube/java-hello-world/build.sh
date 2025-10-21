@@ -10,18 +10,31 @@ IMAGE_TAG="1.0.0"
 IMAGE_FULL="docker.io/${DOCKER_USER}/${APP_NAME}:${IMAGE_TAG}"
 NAMESPACE="demo-ns"
 RELEASE_NAME="java-hello"
-CHART_DIR="$(pwd)"
+WORK_DIR="$(pwd)"
+CHART_DIR="${WORK_DIR}/chart-workdir"
 HOST_ENTRY="hello.local"
+
+# ========================
+# SAFETY: ENSURE CLEAN WORKDIR
+# ========================
+if [[ "$WORK_DIR" =~ "/containers/storage" ]] || [[ "$WORK_DIR" =~ ".local/share/containers" ]]; then
+  echo "⚠️  You are inside a Podman overlay storage path!"
+  echo "   Copying chart to a safe working directory..."
+  mkdir -p "$HOME/helm-safe"
+  rsync -a --delete "$WORK_DIR/" "$CHART_DIR"
+else
+  CHART_DIR="$WORK_DIR"
+fi
 
 # ========================
 # STEP 1: CLEANUP
 # ========================
 echo "🧹 Cleaning previous build artifacts..."
-rm -rf target/ java-hello-world-*.tgz || true
+rm -rf "${CHART_DIR}/target/" "${CHART_DIR}"/java-hello-world-*.tgz || true
 
 # Optional safety: ensure Helm won’t package junk
-if [[ ! -f .helmignore ]]; then
-  cat <<EOF > .helmignore
+if [[ ! -f "${CHART_DIR}/.helmignore" ]]; then
+  cat <<EOF > "${CHART_DIR}/.helmignore"
 target/
 *.jar
 *.tgz
@@ -37,6 +50,7 @@ fi
 # STEP 2: MAVEN BUILD
 # ========================
 echo "🔧 Building Java application..."
+cd "$CHART_DIR"
 mvn clean package -DskipTests
 
 # ========================
@@ -75,6 +89,11 @@ helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set image.repository="docker.io/${DOCKER_USER}/${APP_NAME}" \
   --set image.tag="${IMAGE_TAG}" \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set ingress.hosts[0].host="$HOST_ENTRY" \
+  --set ingress.hosts[0].paths[0].path="/" \
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
   --history-max 1 \
   --atomic \
   --wait
@@ -83,7 +102,7 @@ helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
 # STEP 6: WAIT FOR DEPLOYMENT
 # ========================
 echo "⏳ Waiting for deployment rollout..."
-kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=120s
+kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=180s
 
 # ========================
 # STEP 7: ENSURE INGRESS
@@ -91,7 +110,6 @@ kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" 
 echo "🌐 Ensuring NGINX Ingress is enabled..."
 minikube addons enable ingress >/dev/null 2>&1 || true
 
-# Start tunnel only if not running
 if ! pgrep -f "minikube tunnel" >/dev/null; then
   echo "🌀 Starting minikube tunnel..."
   nohup minikube tunnel >/dev/null 2>&1 &
@@ -117,7 +135,6 @@ fi
 echo "🎉 Deployment complete!"
 echo "➡️  Access your app at: http://${HOST_ENTRY}"
 
-# Optional: automatically open browser (macOS/Linux)
 if command -v open >/dev/null; then
   open "http://${HOST_ENTRY}"
 elif command -v xdg-open >/dev/null; then
