@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# === Config ===
+# ========================
+# CONFIGURATION
+# ========================
 APP_NAME="java-hello-world"
 DOCKER_USER="ryandevlab"
 IMAGE_TAG="1.0.0"
@@ -9,51 +11,87 @@ IMAGE_FULL="docker.io/${DOCKER_USER}/${APP_NAME}:${IMAGE_TAG}"
 NAMESPACE="demo-ns"
 RELEASE_NAME="java-hello"
 CHART_DIR="$(pwd)"
-JAR_NAME="target/java-hello-world-1.0.0.jar"
 HOST_ENTRY="hello.local"
 
-echo "🔧 [1/8] Building Java JAR..."
+# ========================
+# STEP 1: CLEANUP
+# ========================
+echo "🧹 Cleaning previous build artifacts..."
+rm -rf target/ java-hello-world-*.tgz || true
+
+# Optional safety: ensure Helm won’t package junk
+if [[ ! -f .helmignore ]]; then
+  cat <<EOF > .helmignore
+target/
+*.jar
+*.tgz
+*.log
+*.iml
+.idea/
+.DS_Store
+EOF
+  echo "🛡️  Created .helmignore to exclude build artifacts from Helm packages."
+fi
+
+# ========================
+# STEP 2: MAVEN BUILD
+# ========================
+echo "🔧 Building Java application..."
 mvn clean package -DskipTests
 
-# Compute digest to detect change
-NEW_DIGEST=$(sha256sum "$JAR_NAME" | awk '{print $1}')
+# ========================
+# STEP 3: PODMAN IMAGE BUILD
+# ========================
+echo "🐳 Building Podman image..."
+NEW_DIGEST=$(sha256sum "target/${APP_NAME}-1.0.0.jar" | awk '{print $1}')
 OLD_DIGEST=$(podman inspect "$IMAGE_FULL" --format '{{ index .Config.Labels "build_digest" }}' 2>/dev/null || echo "")
 
 if [[ "$NEW_DIGEST" == "$OLD_DIGEST" ]]; then
-  echo "🟢 Existing image already built for current JAR. Skipping rebuild."
+  echo "🟢 Image already up-to-date. Skipping rebuild."
 else
-  echo "🐳 [2/8] Building Podman image..."
-  podman build \
-    -t "$IMAGE_FULL" \
-    --label "build_digest=${NEW_DIGEST}" \
-    .
+  podman build -t "$IMAGE_FULL" --label "build_digest=${NEW_DIGEST}" .
 fi
 
-echo "🔐 [3/8] Ensuring Docker login session..."
+# ========================
+# STEP 4: LOGIN + PUSH
+# ========================
+echo "🔐 Ensuring Docker Hub login..."
 if ! podman login --get-login docker.io >/dev/null 2>&1; then
   podman login docker.io
 else
   echo "🟢 Already logged in to Docker Hub."
 fi
 
-echo "🚀 [4/8] Pushing image to Docker Hub (idempotent overwrite)..."
+echo "🚀 Pushing image to Docker Hub..."
 podman push "$IMAGE_FULL" >/dev/null || true
 
-echo "📦 [5/8] Deploying Helm chart to Minikube..."
+# ========================
+# STEP 5: HELM DEPLOYMENT
+# ========================
+echo "📦 Deploying Helm chart to Minikube..."
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set image.repository="docker.io/${DOCKER_USER}/${APP_NAME}" \
   --set image.tag="${IMAGE_TAG}" \
+  --history-max 1 \
+  --atomic \
   --wait
 
-echo "⏳ [6/8] Waiting for deployment rollout..."
+# ========================
+# STEP 6: WAIT FOR DEPLOYMENT
+# ========================
+echo "⏳ Waiting for deployment rollout..."
 kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=120s
 
-echo "🌐 [7/8] Ensuring Ingress and Minikube tunnel are active..."
+# ========================
+# STEP 7: ENSURE INGRESS
+# ========================
+echo "🌐 Ensuring NGINX Ingress is enabled..."
 minikube addons enable ingress >/dev/null 2>&1 || true
 
-# Start tunnel if not already running
+# Start tunnel only if not running
 if ! pgrep -f "minikube tunnel" >/dev/null; then
   echo "🌀 Starting minikube tunnel..."
   nohup minikube tunnel >/dev/null 2>&1 &
@@ -61,7 +99,10 @@ else
   echo "🟢 Minikube tunnel already running."
 fi
 
-echo "🧭 [8/8] Ensuring local host entry for ${HOST_ENTRY}..."
+# ========================
+# STEP 8: UPDATE /etc/hosts
+# ========================
+echo "🧭 Ensuring local DNS entry for ${HOST_ENTRY}..."
 MINIKUBE_IP=$(minikube ip)
 if ! grep -q "$HOST_ENTRY" /etc/hosts; then
   echo "$MINIKUBE_IP  $HOST_ENTRY" | sudo tee -a /etc/hosts >/dev/null
@@ -70,5 +111,15 @@ else
   echo "🟢 Host entry already present in /etc/hosts"
 fi
 
+# ========================
+# STEP 9: ACCESS APP
+# ========================
 echo "🎉 Deployment complete!"
-echo "➡️ Access your app at: http://$HOST_ENTRY"
+echo "➡️  Access your app at: http://${HOST_ENTRY}"
+
+# Optional: automatically open browser (macOS/Linux)
+if command -v open >/dev/null; then
+  open "http://${HOST_ENTRY}"
+elif command -v xdg-open >/dev/null; then
+  xdg-open "http://${HOST_ENTRY}"
+fi
