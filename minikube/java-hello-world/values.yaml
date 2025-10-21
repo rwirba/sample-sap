@@ -9,20 +9,21 @@ service:
   type: ClusterIP
   port: 80
 
+# ---------------------------------------------------------------------
+# Ingress definition for NGINX controller.
+# You can keep "hello.local" or leave host blank; NGINX will still route
+# by path when host headers don't match.
+# ---------------------------------------------------------------------
 ingress:
   enabled: true
   className: nginx
   hosts:
-    - host: hello.local
+    - host: hello.local         # optional; not used when accessing via EC2-IP
       paths:
         - path: /
           pathType: Prefix
-  tls: []
+  tls: []                       # no TLS yet (HTTP only)
 
-ingressController:
-  serviceType: LoadBalancer
-  host: hello.local
-  
 resources:
   limits:
     cpu: 500m
