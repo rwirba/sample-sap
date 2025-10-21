@@ -3,14 +3,19 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "java-hello-world.fullname" . }}-ingress
+  labels:
+    app: {{ include "java-hello-world.name" . }}
   annotations:
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    {{- if .Values.ingress.annotations }}
+    {{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
   {{- range .Values.ingress.hosts }}
-    - host: {{ .host }}
+    - host: {{ default "" .host }}
       http:
         paths:
         {{- range .paths }}

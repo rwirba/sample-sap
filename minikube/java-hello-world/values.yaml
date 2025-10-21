@@ -1,3 +1,7 @@
+# -----------------------------------------------------------------------------
+# Helm Values for java-hello-world
+# -----------------------------------------------------------------------------
+
 replicaCount: 2
 
 image:
@@ -9,21 +13,36 @@ service:
   type: ClusterIP
   port: 80
 
-# ---------------------------------------------------------------------
-# Ingress definition for NGINX controller.
-# You can keep "hello.local" or leave host blank; NGINX will still route
-# by path when host headers don't match.
-# ---------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Ingress configuration
+# -----------------------------------------------------------------------------
 ingress:
   enabled: true
   className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: hello.local         # optional; not used when accessing via EC2-IP
+    # Allow both hello.local and direct IP access
+    - host: hello.local
       paths:
         - path: /
           pathType: Prefix
-  tls: []                       # no TLS yet (HTTP only)
+    - host: ""  # Allows matching any host (e.g., raw EC2 IP)
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
 
+# -----------------------------------------------------------------------------
+# Ingress Controller defaults
+# -----------------------------------------------------------------------------
+ingressController:
+  serviceType: NodePort
+  host: hello.local
+
+# -----------------------------------------------------------------------------
+# Resource limits
+# -----------------------------------------------------------------------------
 resources:
   limits:
     cpu: 500m
@@ -32,10 +51,16 @@ resources:
     cpu: 250m
     memory: 256Mi
 
+# -----------------------------------------------------------------------------
+# Persistent storage
+# -----------------------------------------------------------------------------
 persistence:
   enabled: true
   accessMode: ReadWriteOnce
   size: 1Gi
   mountPath: /data
 
+# -----------------------------------------------------------------------------
+# Image pull secrets (if private registry)
+# -----------------------------------------------------------------------------
 imagePullSecrets: []
