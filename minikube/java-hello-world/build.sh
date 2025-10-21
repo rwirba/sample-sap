@@ -10,31 +10,16 @@ IMAGE_TAG="1.0.0"
 IMAGE_FULL="docker.io/${DOCKER_USER}/${APP_NAME}:${IMAGE_TAG}"
 NAMESPACE="demo-ns"
 RELEASE_NAME="java-hello"
-WORK_DIR="$(pwd)"
-CHART_DIR="${WORK_DIR}/chart-workdir"
-HOST_ENTRY="hello.local"
-
-# ========================
-# SAFETY: ENSURE CLEAN WORKDIR
-# ========================
-if [[ "$WORK_DIR" =~ "/containers/storage" ]] || [[ "$WORK_DIR" =~ ".local/share/containers" ]]; then
-  echo "⚠️  You are inside a Podman overlay storage path!"
-  echo "   Copying chart to a safe working directory..."
-  mkdir -p "$HOME/helm-safe"
-  rsync -a --delete "$WORK_DIR/" "$CHART_DIR"
-else
-  CHART_DIR="$WORK_DIR"
-fi
+CHART_DIR="$(pwd)"
 
 # ========================
 # STEP 1: CLEANUP
 # ========================
 echo "🧹 Cleaning previous build artifacts..."
-rm -rf "${CHART_DIR}/target/" "${CHART_DIR}"/java-hello-world-*.tgz || true
+rm -rf target/ java-hello-world-*.tgz || true
 
-# Optional safety: ensure Helm won’t package junk
-if [[ ! -f "${CHART_DIR}/.helmignore" ]]; then
-  cat <<EOF > "${CHART_DIR}/.helmignore"
+if [[ ! -f .helmignore ]]; then
+  cat <<EOF > .helmignore
 target/
 *.jar
 *.tgz
@@ -43,14 +28,13 @@ target/
 .idea/
 .DS_Store
 EOF
-  echo "🛡️  Created .helmignore to exclude build artifacts from Helm packages."
+  echo "🛡️  Created .helmignore to exclude build artifacts."
 fi
 
 # ========================
 # STEP 2: MAVEN BUILD
 # ========================
 echo "🔧 Building Java application..."
-cd "$CHART_DIR"
 mvn clean package -DskipTests
 
 # ========================
@@ -80,9 +64,38 @@ echo "🚀 Pushing image to Docker Hub..."
 podman push "$IMAGE_FULL" >/dev/null || true
 
 # ========================
-# STEP 5: HELM DEPLOYMENT
+# STEP 5: ENSURE INGRESS-NGINX CONTROLLER
 # ========================
-echo "📦 Deploying Helm chart to Minikube..."
+echo "🌐 Ensuring NGINX Ingress Controller is installed..."
+
+# Add repo if not present
+if ! helm repo list | grep -q "ingress-nginx"; then
+  echo "📦 Adding ingress-nginx repo..."
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+  helm repo update
+fi
+
+# Check if already installed
+if ! helm status ingress-nginx -n ingress-nginx >/dev/null 2>&1; then
+  echo "🚀 Installing ingress-nginx controller..."
+  helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+    -n ingress-nginx --create-namespace \
+    --set controller.service.type=NodePort \
+    --set controller.config.use-forwarded-headers=true \
+    --wait
+else
+  echo "🟢 ingress-nginx already installed. Upgrading if needed..."
+  helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+    -n ingress-nginx \
+    --set controller.service.type=NodePort \
+    --set controller.config.use-forwarded-headers=true \
+    --wait
+fi
+
+# ========================
+# STEP 6: DEPLOY APP VIA HELM
+# ========================
+echo "📦 Deploying Helm chart..."
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
 helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
@@ -91,52 +104,28 @@ helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --set image.tag="${IMAGE_TAG}" \
   --set ingress.enabled=true \
   --set ingress.className=nginx \
-  --set ingress.hosts[0].host="$HOST_ENTRY" \
+  --set ingress.hosts[0].host="hello.local" \
   --set ingress.hosts[0].paths[0].path="/" \
   --set ingress.hosts[0].paths[0].pathType=Prefix \
   --history-max 1 \
   --atomic \
   --wait
 
-# ========================
-# STEP 6: WAIT FOR DEPLOYMENT
-# ========================
-echo "⏳ Waiting for deployment rollout..."
+echo "⏳ Waiting for rollout..."
 kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=180s
 
 # ========================
-# STEP 7: ENSURE INGRESS
+# STEP 7: DISPLAY ACCESS INFO
 # ========================
-echo "🌐 Ensuring NGINX Ingress is enabled..."
-minikube addons enable ingress >/dev/null 2>&1 || true
+echo "🌍 Deployment successful!"
 
-if ! pgrep -f "minikube tunnel" >/dev/null; then
-  echo "🌀 Starting minikube tunnel..."
-  nohup minikube tunnel >/dev/null 2>&1 &
+NODEPORT=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}' 2>/dev/null || echo "")
+EC2_IP=$(curl -s http://checkip.amazonaws.com || hostname -I | awk '{print $1}')
+
+if [[ -n "$NODEPORT" && -n "$EC2_IP" ]]; then
+  echo "🌐 Access your app at:  http://${EC2_IP}:${NODEPORT}"
+  echo "⚙️  Ensure TCP port ${NODEPORT} is open in your EC2 Security Group."
 else
-  echo "🟢 Minikube tunnel already running."
-fi
-
-# ========================
-# STEP 8: UPDATE /etc/hosts
-# ========================
-echo "🧭 Ensuring local DNS entry for ${HOST_ENTRY}..."
-MINIKUBE_IP=$(minikube ip)
-if ! grep -q "$HOST_ENTRY" /etc/hosts; then
-  echo "$MINIKUBE_IP  $HOST_ENTRY" | sudo tee -a /etc/hosts >/dev/null
-  echo "✅ Added $HOST_ENTRY -> $MINIKUBE_IP to /etc/hosts"
-else
-  echo "🟢 Host entry already present in /etc/hosts"
-fi
-
-# ========================
-# STEP 9: ACCESS APP
-# ========================
-echo "🎉 Deployment complete!"
-echo "➡️  Access your app at: http://${HOST_ENTRY}"
-
-if command -v open >/dev/null; then
-  open "http://${HOST_ENTRY}"
-elif command -v xdg-open >/dev/null; then
-  xdg-open "http://${HOST_ENTRY}"
+  echo "⚠️  Could not detect NodePort or public IP automatically."
+  echo "🔎 Run manually: kubectl get svc -n ingress-nginx"
 fi
