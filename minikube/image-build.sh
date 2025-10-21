@@ -11,22 +11,6 @@ echo "[hello-world] Building Nginx-based Hello World image: ${LOCAL_IMAGE}"
 mkdir -p "${BUILD_DIR}"
 cd "${BUILD_DIR}"
 
-# Dockerfile
-cat > Dockerfile <<'EOF'
-FROM nginx:alpine
-COPY index.html /usr/share/nginx/html/index.html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-EOF
-
-# HTML content
-cat > index.html <<'EOF'
-<!DOCTYPE html>
-<html>
-<head><title>Hello World</title></head>
-<body><h1>Hello from AKS Demo Session Presented By Ryan!</h1></body>
-</html>
-EOF
 
 echo "[hello-world] Building image locally with Podman..."
 podman build -t "${LOCAL_IMAGE}" .
