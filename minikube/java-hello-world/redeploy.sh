@@ -23,9 +23,15 @@ else
   docker build -t "$IMAGE_FULL" --label "build_digest=${NEW_DIGEST}" .
 fi
 
-echo "🔐 Checking Docker login..."
-if ! docker info >/dev/null 2>&1; then
-  docker login docker.io
+echo "🔐 Checking Docker Hub login..."
+CURRENT_USER=$(docker info --format '{{.AuthConfig.Username}}' 2>/dev/null || echo "")
+
+if [[ "$CURRENT_USER" != "$DOCKER_USER" ]]; then
+  echo "🔄 Logging in to Docker Hub as ${DOCKER_USER}..."
+  echo "💡 Tip: If you use tokens, enter your personal access token as password."
+  docker login docker.io -u "$DOCKER_USER"
+else
+  echo "🟢 Already logged in as ${DOCKER_USER}."
 fi
 
 echo "🚀 Pushing image to Docker Hub..."
