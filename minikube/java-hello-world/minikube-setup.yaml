@@ -1,0 +1,84 @@
+---
+- name: Install Minikube on RHEL 9
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install required packages
+      dnf:
+        name:
+          - curl
+          - wget
+          - tar
+          - conntrack
+          - iptables
+          - socat
+        state: present
+
+    - name: Enable Docker repo and install Docker
+      shell: |
+        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        dnf install -y docker-ce docker-ce-cli containerd.io
+        systemctl enable --now docker
+
+    - name: Install cri-dockerd binary
+      shell: |
+        CRI=v0.3.20
+        cd /tmp
+        curl -L -o cri.tgz https://github.com/Mirantis/cri-dockerd/releases/download/${CRI}/cri-dockerd-${CRI#v}-linux-amd64.tar.gz
+        tar -C /usr/local/bin -xzf cri.tgz
+        [ -d /usr/local/bin/cri-dockerd ] && mv /usr/local/bin/cri-dockerd/cri-dockerd /usr/local/bin/ && rm -rf /usr/local/bin/cri-dockerd
+        chmod +x /usr/local/bin/cri-dockerd
+      args:
+        creates: /usr/local/bin/cri-dockerd
+
+    - name: Deploy systemd unit files
+      copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        content: "{{ item.content }}"
+      loop:
+        - { name: 'cri-docker.service', content: |
+            [Unit]
+            Description=CRI Interface for Docker
+            After=network-online.target docker.service
+            Wants=network-online.target
+            Requires=docker.socket
+            [Service]
+            Type=notify
+            ExecStart=/usr/local/bin/cri-dockerd --container-runtime-endpoint fd://
+            ExecReload=/bin/kill -s HUP $MAINPID
+            Restart=always
+            RestartSec=2
+            [Install]
+            WantedBy=multi-user.target
+          }
+        - { name: 'cri-docker.socket', content: |
+            [Unit]
+            Description=CRI Docker Socket for the API
+            PartOf=cri-docker.service
+            [Socket]
+            ListenStream=/var/run/cri-dockerd.sock
+            SocketMode=0660
+            SocketUser=root
+            SocketGroup=docker
+            [Install]
+            WantedBy=sockets.target
+          }
+
+    - name: Reload systemd and start cri-dockerd
+      shell: |
+        systemctl daemon-reload
+        setenforce 0 || true
+        systemctl enable --now cri-docker.socket cri-docker.service
+
+    - name: Install CNI plugins
+      shell: |
+        mkdir -p /opt/cni/bin /etc/cni/net.d
+        curl -L -o /tmp/cni.tgz https://github.com/containernetworking/plugins/releases/download/v1.5.1/cni-plugins-linux-amd64-v1.5.1.tgz
+        tar -C /opt/cni/bin -xzf /tmp/cni.tgz
+        rm -f /tmp/cni.tgz
+
+    - name: Install Minikube and kubectl
+      shell: |
+        curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/v1.37.0/minikube-linux-amd64
+        curl -Lo /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.34.0/bin/linux/amd64/kubectl
+        chmod +x /usr/local/bin/minikube /usr/local/bin/kubectl
