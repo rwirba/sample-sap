@@ -15,7 +15,7 @@ MINIKUBE_VER="v1.37.0"
 # Base Tools
 # -------------------------------
 echo "🧩 Installing base packages..."
-dnf install -y curl wget tar conntrack iptables git vim socat \
+dnf install -y curl wget tar conntrack iptables maven git vim socat \
     libnetfilter_cthelper libnetfilter_cttimeout libnetfilter_queue || true
 
 # -------------------------------
