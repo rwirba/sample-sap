@@ -16,19 +16,11 @@ service:
 ingress:
   enabled: true
   className: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    # Accept hello.local and any IP or domain
-    - host: hello.local
+    - host: 100.25.161.87.nip.io
       paths:
         - path: /
           pathType: Prefix
-    - host: ""    # This means match any host header (e.g., EC2 IP)
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
 
 # -----------------------------------------------------------------------------
 # Resource limits
