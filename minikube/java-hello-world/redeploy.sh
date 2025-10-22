@@ -39,16 +39,13 @@ docker push "$IMAGE_FULL"
 
 echo "📦 Packaging Helm chart..."
 rm -f ${CHART_DIR}/${APP_NAME}-*.tgz || true
-helm package "${CHART_DIR}" -d "${CHART_DIR}"
-
-# Automatically detect the packaged chart file
-CHART_PKG=$(ls ${CHART_DIR}/${APP_NAME}-*.tgz | head -n 1)
+helm lint "${CHART_DIR}" >/dev/null || true  # optional lint step
 
 MINIKUBE_IP=$(minikube ip)
 INGRESS_HOST="${MINIKUBE_IP}.nip.io"
 
 echo "🚀 Redeploying Helm release..."
-helm upgrade --install "$RELEASE_NAME" "${CHART_PKG}" \
+helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --create-namespace \
   --set image.repository="docker.io/${DOCKER_USER}/${APP_NAME}" \
