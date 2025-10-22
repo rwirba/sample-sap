@@ -44,7 +44,11 @@ helm lint "${CHART_DIR}" >/dev/null || true  # optional lint step
 MINIKUBE_IP=$(minikube ip)
 INGRESS_HOST="${MINIKUBE_IP}.nip.io"
 
-echo "🚀 Redeploying Helm release..."
+echo "🚀 Redeploying Helm release (local chart mode)..."
+
+MINIKUBE_IP=$(minikube ip)
+INGRESS_HOST="${MINIKUBE_IP}.nip.io"
+
 helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --namespace "$NAMESPACE" \
   --create-namespace \
@@ -57,6 +61,8 @@ helm upgrade --install "$RELEASE_NAME" "$CHART_DIR" \
   --set ingress.hosts[0].paths[0].pathType=Prefix \
   --atomic \
   --wait
+
+kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=180s
 
 kubectl -n "$NAMESPACE" rollout status deployment/"${RELEASE_NAME}-${APP_NAME}" --timeout=180s
 echo "🌍 Deployment successful!"
