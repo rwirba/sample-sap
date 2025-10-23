@@ -4,6 +4,8 @@ metadata:
   name: java-ads-demo
 spec:
   type: {{ .Values.service.type }}
+  externalIPs:
+    - 3.80.219.212
   selector:
     app: java-ads-demo
   ports:

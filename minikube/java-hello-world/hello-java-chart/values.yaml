@@ -6,15 +6,15 @@ image:
   pullPolicy: Always
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
   targetPort: 8080
 
 ingress:
-  enabled: false
+  enabled: true
   className: nginx
   hosts:
-    - host: hello.3.80.219.212.nip.io
+    - host: 3.80.219.212.nip.io
       paths:
         - path: /
           pathType: Prefix
