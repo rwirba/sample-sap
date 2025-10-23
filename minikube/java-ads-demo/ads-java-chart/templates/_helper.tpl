@@ -1,3 +1,3 @@
-{{- define "java-ads-chart.fullname" -}}
+{{- define "ads-java-chart.fullname" -}}
 java-ads-demo
 {{- end -}}
