@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "java-ads-demo.fullname" . }}
+  name: {{ include "ads-java-chart.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: java-ads-demo
+      app: ads-java-demo
   template:
     metadata:
       labels:
-        app: java-ads-demo
+        app: ads-java-demo
     spec:
       containers:
         - name: java-ads-demo
