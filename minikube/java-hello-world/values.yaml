@@ -14,7 +14,7 @@ ingress:
   enabled: true
   className: nginx
   hosts:
-    - host: 54.91.68.172.nip.io
+    - host: 3.80.219.212.nip.io
       paths:
         - path: /
           pathType: Prefix
