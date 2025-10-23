@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-IMAGE_NAME="ads-java-demo"
+IMAGE_NAME="java-ads-demo"
 IMAGE_TAG="1.0.0"
 DOCKERHUB_USER="ryandevlab"
 

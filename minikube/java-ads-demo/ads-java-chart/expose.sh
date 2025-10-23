@@ -6,7 +6,7 @@ NAMESPACE="demo"
 
 if [ -z "$APP_NAME" ]; then
   echo "❌ Usage: ./expose.sh <app-name>"
-  echo "Example: ./expose.sh java-hello-world"
+  echo "Example: ./expose.sh java-ads-demo"
   exit 1
 fi
 
