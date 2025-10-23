@@ -21,3 +21,4 @@ if ! pgrep -f "minikube tunnel" > /dev/null; then
 fi
 
 echo "✅ App deployed. Access it at: http://$(curl -s http://checkip.amazonaws.com)/"
+#
