@@ -24,13 +24,11 @@ spec:
         readinessProbe:
           httpGet:
             path: /
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
+            port: {{ .Values.service.targetPort }}
         livenessProbe:
           httpGet:
-            path: /
-            port: 8080
+            path: /        # or /status
+            port: {{ .Values.service.targetPort }}
           initialDelaySeconds: 15
           periodSeconds: 20
       volumes:
