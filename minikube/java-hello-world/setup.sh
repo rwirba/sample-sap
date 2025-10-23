@@ -37,10 +37,15 @@ if ! minikube status | grep -q "Running"; then
   minikube start --driver=podman --force
 fi
 
-# Enable ingress
+# Enable ingress addon
 if ! kubectl get pods -n ingress-nginx &> /dev/null; then
-  echo "🌐 Enabling NGINX ingress..."
+  echo "🌐 Enabling NGINX ingress controller..."
   minikube addons enable ingress
+  echo "⏳ Waiting for ingress controller to be ready..."
+  kubectl wait --namespace ingress-nginx \
+    --for=condition=Ready pod \
+    --selector=app.kubernetes.io/component=controller \
+    --timeout=120s
 fi
 
-echo "✅ Minikube setup complete."
+echo "✅ Minikube setup complete with ingress controller enabled."

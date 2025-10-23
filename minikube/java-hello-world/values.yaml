@@ -10,14 +10,15 @@ image:
   pullPolicy: Always
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 80
+  targetPort: 8080
 
 ingress:
   enabled: true
   className: nginx
   hosts:
-    - host: 100.25.161.87.nip.io
+    - host: 54.237.216.232.nip.io
       paths:
         - path: /
           pathType: Prefix
