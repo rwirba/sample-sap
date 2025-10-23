@@ -7,16 +7,6 @@ echo "🚀 Deploying Java Hello World app to Minikube..."
 kubectl get ns demo &> /dev/null || kubectl create ns demo
 
 # Deploy Helm chart using values.yaml + dynamic ingress host
-helm upgrade --install hello-java ./helm-chart \
+helm upgrade --install hello-java . \
   --namespace demo \
   --wait
-
-# Ensure minikube tunnel is running
-if ! pgrep -f "minikube tunnel" > /dev/null; then
-  echo "🔌 Starting minikube tunnel in background..."
-  nohup sudo minikube tunnel > /dev/null 2>&1 &
-else
-  echo "✅ Minikube tunnel is already running."
-fi
-
-echo "✅ App deployed. Access it at: http://$(curl -s http://checkip.amazonaws.com).nip.io/"

@@ -35,7 +35,17 @@ fi
 if ! minikube status | grep -q "Running"; then
   echo "🚀 Starting Minikube with Podman driver..."
   minikube start --driver=podman --force
-fi
+fi 
+
+# Get Minikube IP
+MINIKUBE_IP=$(minikube ip)
+
+# Set NodePort manually or extract dynamically later
+NODEPORT=32694  # Replace with dynamic extraction if needed
+
+# Route EC2 port 80 to Minikube NodePort
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination ${MINIKUBE_IP}:${NODEPORT}
+sudo iptables -t nat -A POSTROUTING -p tcp -d ${MINIKUBE_IP} --dport ${NODEPORT} -j MASQUERADE
 
 # Enable ingress addon
 if ! kubectl get pods -n ingress-nginx &> /dev/null; then
