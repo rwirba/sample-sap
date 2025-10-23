@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "ads-java-demo.fullname" . }}
+  name: {{ include "java-ads-demo.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: ads-java-demo
+      app: java-ads-demo
   template:
     metadata:
       labels:
-        app: ads-java-demo
+        app: java-ads-demo
     spec:
       containers:
-        - name: ads-java-demo
+        - name: java-ads-demo
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -39,5 +39,5 @@ spec:
         {{- if .Values.persistence.enabled }}
         - name: data-volume
           persistentVolumeClaim:
-            claimName: {{ include "ads-java-demo.fullname" . }}-pvc
+            claimName: {{ include "java-ads-demo.fullname" . }}-pvc
         {{- end }}
