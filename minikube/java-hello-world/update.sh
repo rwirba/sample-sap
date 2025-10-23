@@ -5,9 +5,7 @@ echo "🔁 Updating app in Minikube..."
 
 # Upgrade Helm release using values.yaml + dynamic ingress host
 helm upgrade hello-java . \
-  --namespace demo \
-  --set ingress.host=$(curl -s http://checkip.amazonaws.com).nip.io \
-  --wait
+  --namespace demo 
 
 # Ensure minikube tunnel is running
 if ! pgrep -f "minikube tunnel" > /dev/null; then
