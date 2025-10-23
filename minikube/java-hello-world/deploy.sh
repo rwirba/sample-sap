@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Deploying Java Hello World app to Minikube..."
+echo "Deploying Java Hello World app to Minikube..."
 
 # Create namespace if missing
 kubectl get ns demo &> /dev/null || kubectl create ns demo
