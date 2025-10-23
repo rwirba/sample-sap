@@ -4,8 +4,6 @@ metadata:
   name: java-hello-world
 spec:
   type: {{ .Values.service.type }}
-  externalIPs:
-    - 3.80.219.212
   selector:
     app: java-hello-world
   ports:
