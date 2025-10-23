@@ -21,14 +21,14 @@ spec:
         volumeMounts:
         - name: data-volume
           mountPath: {{ .Values.persistence.mountPath }}
-        readinessProbe:
-          httpGet:
-            path: /
-            port: {{ .Values.service.targetPort }}
-        livenessProbe:
-          httpGet:
-            path: /        # or /status
-            port: {{ .Values.service.targetPort }}
+        # readinessProbe:
+        #   httpGet:
+        #     path: /
+        #     port: {{ .Values.service.targetPort }}
+        # livenessProbe:
+        #   httpGet:
+        #     path: /        # or /status
+        #     port: {{ .Values.service.targetPort }}
           initialDelaySeconds: 15
           periodSeconds: 20
       volumes:
