@@ -4,7 +4,7 @@ set -e
 echo "🔁 Updating app in Minikube..."
 
 # Upgrade Helm release
-helm upgrade hello-java ./helm-chart \
+helm upgrade hello-java . \
   --namespace demo \
   --set image.repository=ryandevlab/java-hello-world \
   --set image.tag=1.0.0 \
