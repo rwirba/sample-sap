@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: hello.54.235.9.167.nip.io
+    - host: hello.3.80.219.212.nip.io
       http:
         paths:
           - path: /
@@ -18,7 +18,7 @@ spec:
                 name: java-hello-world
                 port:
                   number: 80
-    - host: ads.54.235.9.167.nip.io
+    - host: ads.3.80.219.212.nip.io
       http:
         paths:
           - path: /
