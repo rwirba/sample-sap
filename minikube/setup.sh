@@ -100,15 +100,27 @@ echo "✅ Environment info saved at /etc/minikube/env-info.json"
 
 # install cloudflared (RHEL 9 compatible)
 if ! command -v cloudflared &>/dev/null; then
-  echo "📦 Installing Cloudflared (RPM)..."
-  sudo rpm -ivh https://pkg.cloudflare.com/cloudflared-latest.x86_64.rpm || {
-    echo "⚠️ RPM direct install failed, falling back to manual binary download..."
-    curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared
+  echo "📦 Installing Cloudflared (RPM or fallback binary)..."
+
+  # Try RPM first
+  if sudo rpm -ivh https://pkg.cloudflare.com/cloudflared-latest.x86_64.rpm 2>/dev/null; then
+    echo "✅ Cloudflared installed via RPM."
+  else
+    echo "⚠️ RPM not available, installing binary manually..."
+    ARCH=$(uname -m)
+    [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
+
+    # Download directly with sudo-safe redirection
+    sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
+      -o /usr/local/bin/cloudflared
+
     sudo chmod +x /usr/local/bin/cloudflared
-  }
+    echo "✅ Cloudflared binary installed at /usr/local/bin/cloudflared"
+  fi
 else
   echo "✅ Cloudflared already installed."
 fi
+
 
 
 sudo mkdir -p /root/.cloudflared
