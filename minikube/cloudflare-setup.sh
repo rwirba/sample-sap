@@ -71,7 +71,7 @@ systemctl enable cloudflared
 systemctl restart cloudflared
 sleep 3
 systemctl status cloudflared --no-pager || true
-
+#
 # verify tunnel
 cloudflared tunnel info "$TUNNEL_NAME" || true
 
