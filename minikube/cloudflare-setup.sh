@@ -79,14 +79,13 @@ EOF"
 
 sudo chmod 644 /etc/systemd/system/cloudflared.service
 
-restorecon -Rv /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service || true
-systemctl daemon-reload
-systemctl enable cloudflared
-systemctl restart cloudflared
-sleep 3
-systemctl status cloudflared --no-pager || true
-#
-# verify tunnel
-cloudflared tunnel info "$TUNNEL_NAME" || true
+# reload and start Cloudflared systemd service
+echo "🔄 Reloading systemd and starting Cloudflare service..."
+sudo restorecon -Rv /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service || true
+sudo systemctl daemon-reexec || true
+sudo systemctl daemon-reload || true
+sudo systemctl enable cloudflared --now || true
+sleep 5
+sudo systemctl restart cloudflared || true
+sudo systemctl status cloudflared --no-pager || true
 
-echo "✅ Cloudflare tunnel setup complete!"
