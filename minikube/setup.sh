@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-
 S3_CERT_PATH="s3://ryandevlab-bucket/origin.crt"
 S3_KEY_PATH="s3://ryandevlab-bucket/origin.key"
 LOCAL_CERT_PATH="$(pwd)/origin.crt"
@@ -11,25 +10,23 @@ NAMESPACE="demo"
 echo "Installing Minikube environment on RHEL 9..."
 
 # Install dependencies
-sudo dnf install -y conntrack curl wget unzip podman
+sudo dnf install -y conntrack curl wget vim unzip podman jq awscli
 
-# Install kubectl
+# kubectl
 if ! command -v kubectl &> /dev/null; then
   echo "Installing kubectl..."
   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-  chmod +x kubectl
-  sudo mv kubectl /usr/local/bin/
+  chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 
-# Install Minikube
+# minikube
 if ! command -v minikube &> /dev/null; then
   echo "Installing Minikube..."
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-  chmod +x minikube-linux-amd64
-  sudo mv minikube-linux-amd64 /usr/local/bin/minikube
+  chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
 fi
 
-# Install Helm
+# helm
 if ! command -v helm &> /dev/null; then
   echo "Installing Helm..."
   curl -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
@@ -38,7 +35,7 @@ if ! command -v helm &> /dev/null; then
   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
 fi
 
-# Start Minikube with Podman
+# start minikube
 if ! minikube status | grep -q "Running"; then
   echo "🚀 Starting Minikube with Podman driver..."
   minikube start --driver=podman --force
@@ -46,82 +43,42 @@ else
   echo "✅ Minikube already running."
 fi
 
-# Wait until Minikube node is fully ready
+# wait for node
 echo "⏳ Waiting for Minikube node to be Ready..."
-kubectl wait --for=condition=Ready node --all --timeout=180s || {
-  echo "⚠️  Node not ready yet, checking status:"
-  kubectl get nodes -o wide
-}
+kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
-# Enable ingress addon only after node is ready
+# ingress
 if ! kubectl get ns ingress-nginx &> /dev/null; then
   echo "🧩 Enabling NGINX ingress controller..."
   minikube addons enable ingress
 fi
-
-# Wait for ingress controller pod
 echo "⏳ Waiting for ingress controller to start..."
 kubectl wait --namespace ingress-nginx \
   --for=condition=Ready pod \
   --selector=app.kubernetes.io/component=controller \
-  --timeout=180s || {
-    echo "⚠️  Ingress controller failed to start on first attempt, retrying..."
-    minikube addons disable ingress
-    sleep 5
-    minikube addons enable ingress
-    kubectl wait --namespace ingress-nginx \
-      --for=condition=Ready pod \
-      --selector=app.kubernetes.io/component=controller \
-      --timeout=180s
-  }
+  --timeout=180s || true
+echo "✅ Minikube + Ingress ready!"
 
-echo "✅ Minikube is running and ingress-nginx is ready!"
-
+# TLS secret from S3
 echo "🔒 Setting up Cloudflare TLS certificate from S3..."
-
-# Ensure AWS CLI is installed
-if ! command -v aws &> /dev/null; then
-  echo "⚙️ Installing AWS CLI..."
-  sudo dnf install -y awscli || sudo yum install -y awscli
-fi
-
-# Download cert and key from S3
-echo "📥 Downloading certificate and key from S3..."
-aws s3 cp "$S3_CERT_PATH" "$LOCAL_CERT_PATH" --quiet || {
-  echo "❌ Failed to download $S3_CERT_PATH"
-  exit 1
-}
-
-aws s3 cp "$S3_KEY_PATH" "$LOCAL_KEY_PATH" --quiet || {
-  echo "❌ Failed to download $S3_KEY_PATH"
-  exit 1
-}
-
-# Verify files exist
-if [[ -f "$LOCAL_CERT_PATH" && -f "$LOCAL_KEY_PATH" ]]; then
-  echo "✅ Certificate and key successfully downloaded from S3."
-
-  # Create namespace if missing
-  if ! kubectl get ns $NAMESPACE &> /dev/null; then
-    echo "📦 Creating namespace '$NAMESPACE'..."
-    kubectl create ns $NAMESPACE
-  fi
-
-  # Recreate secret cleanly
-  if kubectl get secret $SECRET_NAME -n $NAMESPACE &> /dev/null; then
-    echo "🧹 Deleting existing TLS secret '$SECRET_NAME'..."
-    kubectl delete secret $SECRET_NAME -n $NAMESPACE
-  fi
-
-  echo "🔐 Creating Kubernetes TLS secret '$SECRET_NAME'..."
-  kubectl create secret tls $SECRET_NAME \
-    --cert="$LOCAL_CERT_PATH" \
-    --key="$LOCAL_KEY_PATH" \
-    -n $NAMESPACE
-
-  echo "✅ Cloudflare TLS secret '$SECRET_NAME' created successfully."
-else
-  echo "❌ Certificate or key file missing after S3 download."
-  exit 1
-fi
+aws s3 cp "$S3_CERT_PATH" "$LOCAL_CERT_PATH" --quiet
+aws s3 cp "$S3_KEY_PATH" "$LOCAL_KEY_PATH" --quiet
+kubectl create ns $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+kubectl delete secret $SECRET_NAME -n $NAMESPACE --ignore-not-found
+kubectl create secret tls $SECRET_NAME --cert="$LOCAL_CERT_PATH" --key="$LOCAL_KEY_PATH" -n $NAMESPACE
 rm -f "$LOCAL_CERT_PATH" "$LOCAL_KEY_PATH"
+echo "✅ TLS secret created."
+
+# Capture metadata for Cloudflare
+CLUSTER_IP=$(minikube ip)
+INGRESS_SVC=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o json | jq -r '.spec.clusterIP')
+echo "📘 Saving cluster info to /etc/minikube/env-info.json"
+sudo mkdir -p /etc/minikube
+cat <<EOF | sudo tee /etc/minikube/env-info.json >/dev/null
+{
+  "namespace": "$NAMESPACE",
+  "cluster_ip": "$CLUSTER_IP",
+  "ingress_svc": "$INGRESS_SVC"
+}
+EOF
+echo "✅ Environment info saved at /etc/minikube/env-info.json"
