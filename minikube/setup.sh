@@ -98,14 +98,18 @@ cat <<EOF | sudo tee /etc/minikube/env-info.json >/dev/null
 EOF
 echo "✅ Environment info saved at /etc/minikube/env-info.json"
 
-# Cloudflared setup
-echo "☁️ Installing and restoring Cloudflared..."
-if ! command -v cloudflared &> /dev/null; then
-  wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -O /tmp/cloudflared.deb
-  sudo dnf install -y /tmp/cloudflared.deb || sudo yum localinstall -y /tmp/cloudflared.deb
-  sudo mv /usr/bin/cloudflared /usr/local/bin/cloudflared 2>/dev/null || true
-  sudo chmod +x /usr/local/bin/cloudflared
+# install cloudflared (RHEL 9 compatible)
+if ! command -v cloudflared &>/dev/null; then
+  echo "📦 Installing Cloudflared (RPM)..."
+  sudo rpm -ivh https://pkg.cloudflare.com/cloudflared-latest.x86_64.rpm || {
+    echo "⚠️ RPM direct install failed, falling back to manual binary download..."
+    curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared
+    sudo chmod +x /usr/local/bin/cloudflared
+  }
+else
+  echo "✅ Cloudflared already installed."
 fi
+
 
 sudo mkdir -p /root/.cloudflared
 sudo aws s3 cp "$S3_TUNNEL_PATH" "/root/.cloudflared/${TUNNEL_ID}.json" --quiet || echo "⚠️ No tunnel file found in S3, you may need to upload it first."
