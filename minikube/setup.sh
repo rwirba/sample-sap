@@ -153,3 +153,9 @@ sudo systemctl restart cloudflared
 sudo systemctl status cloudflared --no-pager
 
 echo "🎯 Cloudflare + Minikube environment fully ready!"
+
+# Ensure /etc/minikube/env-info.json always reflects the live cluster IP
+MINIKUBE_IP=$(minikube ip)
+sudo jq --arg ip "$MINIKUBE_IP" '.cluster_ip = $ip' /etc/minikube/env-info.json | sudo tee /etc/minikube/env-info.json >/dev/null
+echo "✅ Updated Minikube IP: $MINIKUBE_IP"
+
