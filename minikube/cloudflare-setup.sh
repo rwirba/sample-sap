@@ -59,8 +59,9 @@ EOF"
 sudo chmod 644 /etc/cloudflared/config.yml
 
 
-# systemd
-cat >/etc/systemd/system/cloudflared.service <<EOF
+# systemd service
+echo "🧩 Creating /etc/systemd/system/cloudflared.service..."
+sudo bash -c "cat > /etc/systemd/system/cloudflared.service <<EOF
 [Unit]
 Description=Cloudflare Tunnel Service
 After=network.target
@@ -74,7 +75,9 @@ Environment=HOME=/root
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF"
+
+sudo chmod 644 /etc/systemd/system/cloudflared.service
 
 restorecon -Rv /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service || true
 systemctl daemon-reload
