@@ -13,10 +13,6 @@ metadata:
     {{- end }}
 spec:
   ingressClassName: nginx 
-  tls:
-    - hosts:
-        - ads.mitechnology.org
-      secretName: cloudflare-cert
   rules:
     - host: ads.mitechnology.org
       http:
