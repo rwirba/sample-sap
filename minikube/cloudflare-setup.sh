@@ -29,12 +29,20 @@ if ! command -v cloudflared &>/dev/null; then
 fi
 
 # download tunnel creds from S3
-mkdir -p /root/.cloudflared /etc/cloudflared
-aws s3 cp "$S3_TUNNEL_PATH" /root/.cloudflared/tunnel.json
-TUNNEL_ID=$(jq -r .TunnelID /root/.cloudflared/tunnel.json)
+echo "📥 Downloading Cloudflare tunnel credentials from S3..."
+sudo mkdir -p /root/.cloudflared /etc/cloudflared
 
+# Download the JSON as root
+sudo aws s3 cp "$S3_TUNNEL_PATH" /root/.cloudflared/tunnel.json --quiet
+
+# Extract tunnel ID
+TUNNEL_ID=$(sudo jq -r .TunnelID /root/.cloudflared/tunnel.json)
 echo "📘 Tunnel ID: $TUNNEL_ID"
-cp /root/.cloudflared/tunnel.json "/root/.cloudflared/${TUNNEL_ID}.json"
+
+# Copy credentials for config reference
+sudo cp /root/.cloudflared/tunnel.json "/root/.cloudflared/${TUNNEL_ID}.json"
+sudo chmod 600 /root/.cloudflared/${TUNNEL_ID}.json
+
 
 # build config.yml
 cat >/etc/cloudflared/config.yml <<EOF
