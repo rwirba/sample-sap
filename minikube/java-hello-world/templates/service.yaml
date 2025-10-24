@@ -5,7 +5,7 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   externalIPs:
-    - 3.80.219.212
+    - 3.88.103.114
   selector:
     app: java-hello-world
   ports:
