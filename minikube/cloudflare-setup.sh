@@ -44,8 +44,9 @@ sudo cp /root/.cloudflared/tunnel.json "/root/.cloudflared/${TUNNEL_ID}.json"
 sudo chmod 600 /root/.cloudflared/${TUNNEL_ID}.json
 
 
-# build config.yml
-cat >/etc/cloudflared/config.yml <<EOF
+# build config.yml safely with sudo
+echo "⚙️ Generating /etc/cloudflared/config.yml..."
+sudo bash -c "cat > /etc/cloudflared/config.yml <<EOF
 tunnel: $TUNNEL_ID
 credentials-file: /root/.cloudflared/$TUNNEL_ID.json
 ingress:
@@ -54,7 +55,9 @@ echo "  - hostname: $DOMAIN"
 echo "    service: https://$CLUSTER_IP:443"
 done)
   - service: http_status:404
-EOF
+EOF"
+sudo chmod 644 /etc/cloudflared/config.yml
+
 
 # systemd
 cat >/etc/systemd/system/cloudflared.service <<EOF
