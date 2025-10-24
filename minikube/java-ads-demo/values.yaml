@@ -6,7 +6,7 @@ image:
   pullPolicy: Always
 
 service:
-  type: NodePort
+  type: ClusterIP
   port: 81   # different port to avoid conflict
   targetPort: 8080
 
@@ -14,7 +14,7 @@ ingress:
   enabled: true
   className: nginx
   hosts:
-    - host: ads.3.88.103.114.nip.io
+    - host: ads.mitechnology.org
       paths:
         - path: /
           pathType: Prefix
