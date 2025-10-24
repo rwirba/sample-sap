@@ -12,20 +12,17 @@ metadata:
     {{- end }}
     {{- end }}
 spec:
-  ingressClassName: {{ .Values.ingress.className }}
+  ingressClassName: nginx
   rules:
-  {{- range .Values.ingress.hosts }}
-    - host: {{ default "" .host }}
+    - host: ads.3.88.103.114.nip.io
       http:
         paths:
-        {{- range .paths }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: java-ads-demo
                 port:
-                  number: {{ $.Values.service.port }}
-        {{- end }}
-  {{- end }}
-{{- end }}
+                  number: 81
+
+
