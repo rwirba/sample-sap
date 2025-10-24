@@ -1,0 +1,34 @@
+replicaCount: 2
+
+image:
+  repository: docker.io/ryandevlab/java-ads-demo
+  tag: "1.0.0"
+  pullPolicy: Always
+
+service:
+  type: NodePort
+  port: 81   # different port to avoid conflict
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: ads.3.88.103.114.nip.io
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /data
