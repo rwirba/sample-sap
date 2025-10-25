@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "mysql-db.fullname" . }}
+  name: {{ include "mysql-db.name" . }}
   labels:
     app: {{ include "mysql-db.name" . }}
 spec:
-  serviceName: {{ include "mysql-db.fullname" . }}
+  serviceName: {{ include "mysql-db.name" . }}
   replicas: 1
   selector:
     matchLabels:

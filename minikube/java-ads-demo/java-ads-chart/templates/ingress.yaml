@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "java-ads-demo.fullname" . }}-ingress
+  name: {{ include "java-ads-demo.name" . }}-ingress
   labels:
     app: {{ include "java-ads-demo.name" . }}
   annotations:

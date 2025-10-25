@@ -1,4 +1,3 @@
-{{- define "mysql-chart.fullname" -}}
-mysql-db
+{{- define "mysql-chart.name" -}}
+{{ .Chart.Name }}
 {{- end -}}
-

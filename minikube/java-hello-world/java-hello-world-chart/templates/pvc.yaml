@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "java-hello-world-chart.fullname" . }}-pvc
+  name: {{ include "java-hello-world-chart.name" . }}-pvc
 spec:
   accessModes:
     - {{ .Values.persistence.accessMode }}
