@@ -1,5 +1,5 @@
 image:
-  repository: <your-dockerhub-username>/mysql-demo
+  repository: ryandevlab/mysql-demo
   tag: latest
   pullPolicy: Always
 
