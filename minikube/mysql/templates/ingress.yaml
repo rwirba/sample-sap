@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mysql-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "TCP"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: mysql.mitechnology.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mysql-db
+                port:
+                  number: 3306

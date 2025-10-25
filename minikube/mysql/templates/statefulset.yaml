@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "mysql-db.fullname" . }}
+  labels:
+    app: {{ include "mysql-db.name" . }}
+spec:
+  serviceName: {{ include "mysql-db.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "mysql-db.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mysql-db.name" . }}
+    spec:
+      containers:
+        - name: mysql
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "{{ .Values.mysql.rootPassword }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.mysql.database }}"
+            - name: MYSQL_USER
+              value: "{{ .Values.mysql.user }}"
+            - name: MYSQL_PASSWORD
+              value: "{{ .Values.mysql.password }}"
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
