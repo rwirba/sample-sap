@@ -21,6 +21,12 @@ resource "aws_instance" "rhel9_ec2" {
   iam_instance_profile   = "ryan_dev_lab_instance_role"
   vpc_security_group_ids = [data.aws_security_group.ryan_sg.id]
 
+  user_data = <<-EOF
+              #!/bin/bash
+              dnf -y update
+              dnf -y install git
+              EOF
+
   tags = {
     Name = "RHEL9-EC2"
   }
