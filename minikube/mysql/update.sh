@@ -2,8 +2,8 @@
 set -euo pipefail
 
 IMAGE_NAME="mysql-demo"
-TAG="latest"
-DOCKER_USER="ryandevlab"
+TAG="1.0.0"
+DOCKERHUB_USER="ryandevlab"
 
 echo "♻️ Rebuilding MySQL image..."
 podman build -t docker.io/${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} .

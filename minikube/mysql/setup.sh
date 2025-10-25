@@ -3,7 +3,7 @@ set -euo pipefail
 
 IMAGE_NAME="mysql-demo"
 TAG="1.0.0"
-DOCKER_USER="ryandevlab"
+DOCKERHUB_USER="ryandevlab"
 
 echo "Building Podman image: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}..."
 
