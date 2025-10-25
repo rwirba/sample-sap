@@ -2,17 +2,18 @@
 set -euo pipefail
 
 IMAGE_NAME="mysql-demo"
-TAG="latest"
+TAG="1.0.0"
 DOCKER_USER="ryandevlab"
 
-echo "🐳 Building MySQL image..."
-podman build -t ${IMAGE_NAME}:${TAG} .
+echo "Building Podman image: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}..."
+
+# Build the image using your Dockerfile
+podman build -t docker.io/${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} .
 
 echo "🔐 Logging into Docker Hub..."
-podman login -u ${DOCKER_USER}
+podman login docker.io --username ${DOCKERHUB_USER}
 
-echo "🏷️ Tagging and pushing image..."
-podman tag ${IMAGE_NAME}:${TAG} ${DOCKER_USER}/${IMAGE_NAME}:${TAG}
-podman push ${DOCKER_USER}/${IMAGE_NAME}:${TAG}
+echo "Pushing image to Docker Hub..."
+podman push docker.io/${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
 
-echo "✅ MySQL image pushed to Docker Hub."
+echo "Image pushed successfully: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
