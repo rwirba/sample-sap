@@ -1,3 +1,3 @@
-{{- define "java-hello-world.chart" -}}
+{{- define "java-hello-world-chart.fullname" -}}
 java-hello-world
 {{- end -}}
