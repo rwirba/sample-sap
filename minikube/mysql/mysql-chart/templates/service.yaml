@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "mysql-db.name" . }}
+  name: {{ include "mysql.name" . }}
 spec:
   type: {{ .Values.service.type }}
   selector:
-    app: {{ include "mysql-db.name" . }}
+    app: {{ include "mysql.name" . }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 3306
