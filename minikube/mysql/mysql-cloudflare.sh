@@ -11,7 +11,7 @@ fi
 CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
 
 # Fetch NodePort used by MySQL Service
-NODE_PORT=$(kubectl get svc mysql-demo -n demo -o jsonpath='{.spec.ports[0].nodePort}')
+NODE_PORT=$(kubectl get svc mysql-db -n demo -o jsonpath='{.spec.ports[0].nodePort}')
 if [[ -z "$NODE_PORT" ]]; then
   echo "❌ Could not determine MySQL NodePort. Deploy MySQL first."
   exit 1
