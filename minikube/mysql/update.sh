@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE_NAME="mysql-demo"
-TAG="1.0.0"
+IMAGE_TAG="1.0.0"
 DOCKERHUB_USER="ryandevlab"
 
 echo "♻️ Rebuilding MySQL image..."
