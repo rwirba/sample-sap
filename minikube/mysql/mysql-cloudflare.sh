@@ -75,4 +75,8 @@ sudo systemctl status "${SERVICE_NAME}" --no-pager
 
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
-
+# --- Register DNS Route ---
+echo "🌍 Registering DNS route for ${HOSTNAME}..."
+cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" || {
+  echo "⚠️ Failed to register DNS route for ${HOSTNAME}"
+}
