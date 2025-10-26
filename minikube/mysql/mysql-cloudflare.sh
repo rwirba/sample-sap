@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="mysql"
 HOSTNAME="${APP_NAME}.mitechnology.org"
-S3_TUNNEL_PATH="s3://ryandevlab-bucket/${APP_NAME}-tunnel.json"
+S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
 
@@ -45,7 +45,7 @@ tunnel: ${TUNNEL_ID}
 credentials-file: /root/.cloudflared/${TUNNEL_ID}.json
 ingress:
   - hostname: ${HOSTNAME}
-    service: http://${CLUSTER_IP}:80
+    service: http://${CLUSTER_IP}:3306
   - service: http_status:404
 EOF"
 sudo chmod 644 "${TUNNEL_DIR}/config.yml"
@@ -75,6 +75,4 @@ sudo systemctl status "${SERVICE_NAME}" --no-pager
 
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
-echo "🌍 Registering DNS route for ${HOSTNAME}..."
-cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" || true
 
