@@ -85,7 +85,8 @@ rm -rf "$TMPDIR"
 echo "✅ TLS secret '$SECRET_NAME' created in namespace '$NAMESPACE'"
 
 # --- Save cluster IP info for app cloudflare scripts ---
-CLUSTER_IP=$(minikube ip)
+CLUSTER_IP=$(minikube ip) 
+sudo mkdir -p /root/.cloudflared
 sudo mkdir -p /etc/minikube
 cat <<EOF | sudo tee /etc/minikube/env-info.json >/dev/null
 {
