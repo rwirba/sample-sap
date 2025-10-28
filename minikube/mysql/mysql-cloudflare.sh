@@ -7,17 +7,17 @@ S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 S3_CERT_PATH="s3://ryandevlab-bucket/origin.crt"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
-CERT_PATH="/root/.cloudflared/cert.pem"
+CERT_PATH="$HOME/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # --- Preflight check for Cloudflare certificate ---
-if [[ ! -f /root/.cloudflared/cert.pem ]]; then
+if [[ ! -f "$CERT_PATH" ]]; then
   echo "❌ Cloudflare login certificate missing."
-  echo "👉 Run: sudo cloudflared login  (then select your domain)."
+  echo "👉 Run: cloudflared login  (then select your domain)."
   exit 1
 fi
-
+export TUNNEL_ORIGIN_CERT="$CERT_PATH"
 
 # --- install dependencies ---
 sudo dnf install -y awscli jq curl policycoreutils || true
