@@ -104,6 +104,6 @@ if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
   echo "✅ DNS route for ${HOSTNAME} already exists."
 else
   echo "🆕 Registering new DNS route for ${HOSTNAME}..."
-  sudo -E bash -c "TUNNEL_ORIGIN_CERT=${ROOT_CERT_PATH} cloudflared tunnel route dns '${TUNNEL_ID}' '${HOSTNAME}'" && \
+  sudo -E bash -c "PATH=/usr/local/bin:/usr/bin:/bin TUNNEL_ORIGIN_CERT=${ROOT_CERT_PATH} cloudflared tunnel route dns '${TUNNEL_ID}' '${HOSTNAME}'" && \
   echo "✅ DNS route created for ${HOSTNAME}."
 fi
