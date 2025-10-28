@@ -113,8 +113,8 @@ else
   exit 1
 fi
 
-# --- Verify Cloudflare certificate validity ---
-if ! grep -q "PRIVATE KEY" "$ROOT_CERT_PATH"; then
+# --- Verify Cloudflare certificate validity (run as root) ---
+if ! sudo grep -q "PRIVATE KEY" "$ROOT_CERT_PATH"; then
   echo "⚠️ The file at $ROOT_CERT_PATH doesn't appear to be a valid Cloudflare login certificate."
   echo "   Run 'cloudflared login' again under your user, then re-run this script."
   exit 1
