@@ -14,6 +14,8 @@ echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # --- Preflight check for Cloudflare certificate ---
 # Sync from user home if needed
+# --- Preflight check for Cloudflare certificate ---
+# Sync from user home if needed
 if [[ -f "${HOME}/.cloudflared/cert.pem" && ! -f "$ROOT_CERT_PATH" ]]; then
   sudo mkdir -p /root/.cloudflared
   sudo cp "${HOME}/.cloudflared/cert.pem" "$ROOT_CERT_PATH"
@@ -27,6 +29,9 @@ if [[ ! -f "$ROOT_CERT_PATH" ]]; then
   echo "👉 Run: cloudflared login (then select your domain)."
   exit 1
 fi
+
+# Always use root cert for DNS registration
+export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
 
 # Always use root cert for DNS registration
 export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
