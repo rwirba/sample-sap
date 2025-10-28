@@ -99,6 +99,27 @@ sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
+# --- Ensure certificate readability ---
+if sudo test -f "$ROOT_CERT_PATH"; then
+  sudo chown root:root "$ROOT_CERT_PATH"
+  sudo chmod 600 "$ROOT_CERT_PATH"
+  # Fix SELinux context if enforced
+  if command -v restorecon &>/dev/null; then
+    sudo restorecon -Rv /root/.cloudflared >/dev/null 2>&1 || true
+  fi
+else
+  echo "❌ Root Cloudflare cert.pem missing unexpectedly."
+  echo "Run: cloudflared login"
+  exit 1
+fi
+
+# --- Verify Cloudflare certificate validity ---
+if ! grep -q "PRIVATE KEY" "$ROOT_CERT_PATH"; then
+  echo "⚠️ The file at $ROOT_CERT_PATH doesn't appear to be a valid Cloudflare login certificate."
+  echo "   Run 'cloudflared login' again under your user, then re-run this script."
+  exit 1
+fi
+
 # --- Register DNS Route ---
 echo "🌍 Checking DNS route for ${HOSTNAME}..."
 
