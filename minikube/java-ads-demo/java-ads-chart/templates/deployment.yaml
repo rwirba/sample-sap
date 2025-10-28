@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "java-ads-demo.fullname" . }}
+  name: {{ include "java-ads-demo.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -36,4 +36,4 @@ spec:
       volumes:
       - name: data-volume
         persistentVolumeClaim:
-          claimName: {{ include "java-ads-demo.fullname" . }}-pvc
+          claimName: {{ include "java-ads-demo.name" . }}-pvc

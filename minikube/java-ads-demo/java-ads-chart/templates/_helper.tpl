@@ -1,4 +1,4 @@
-{{- define "java-ads-chart.name" -}}
+{{- define "java-ads.name" -}}
 {{ .Chart.Name }}
 {{- end -}}
 

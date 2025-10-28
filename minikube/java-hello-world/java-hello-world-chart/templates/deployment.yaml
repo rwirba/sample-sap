@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "java-hello-world-chart.fullname" . }}
+  name: {{ include "java-hello-world.name" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -36,4 +36,4 @@ spec:
       volumes:
       - name: data-volume
         persistentVolumeClaim:
-          claimName: {{ include "java-hello-world-chart.fullname" . }}-pvc
+          claimName: {{ include "java-hello-world.name" . }}-pvc
