@@ -12,12 +12,14 @@ CERT_PATH="$HOME/.cloudflared/cert.pem"
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # --- Preflight check for Cloudflare certificate ---
-if [[ ! -f "$CERT_PATH" ]]; then
-  echo "❌ Cloudflare login certificate missing."
-  echo "👉 Run: cloudflared login  (then select your domain)."
-  exit 1
+# Automatically sync cert to root if needed
+if [[ -f "${HOME}/.cloudflared/cert.pem" && ! -f "/root/.cloudflared/cert.pem" ]]; then
+  sudo mkdir -p /root/.cloudflared
+  sudo cp "${HOME}/.cloudflared/cert.pem" /root/.cloudflared/cert.pem
+  sudo chmod 600 /root/.cloudflared/cert.pem
+  echo "✅ Synced Cloudflare cert.pem to /root for tunnel access."
 fi
-export TUNNEL_ORIGIN_CERT="$CERT_PATH"
+
 
 # --- install dependencies ---
 sudo dnf install -y awscli jq curl policycoreutils || true
