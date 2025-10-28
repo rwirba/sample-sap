@@ -8,17 +8,28 @@ S3_CERT_PATH="s3://ryandevlab-bucket/origin.crt"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
 CERT_PATH="$HOME/.cloudflared/cert.pem"
+ROOT_CERT_PATH="/root/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # --- Preflight check for Cloudflare certificate ---
-# Automatically sync cert to root if needed
-if [[ -f "${HOME}/.cloudflared/cert.pem" && ! -f "/root/.cloudflared/cert.pem" ]]; then
+# Sync from user home if needed
+if [[ -f "${HOME}/.cloudflared/cert.pem" && ! -f "$ROOT_CERT_PATH" ]]; then
   sudo mkdir -p /root/.cloudflared
-  sudo cp "${HOME}/.cloudflared/cert.pem" /root/.cloudflared/cert.pem
-  sudo chmod 600 /root/.cloudflared/cert.pem
-  echo "✅ Synced Cloudflare cert.pem to /root for tunnel access."
+  sudo cp "${HOME}/.cloudflared/cert.pem" "$ROOT_CERT_PATH"
+  sudo chmod 600 "$ROOT_CERT_PATH"
+  echo "✅ Synced Cloudflare cert.pem to /root for root/systemd access."
 fi
+
+# If still missing (fresh instance), tell user to login
+if [[ ! -f "$ROOT_CERT_PATH" ]]; then
+  echo "❌ Missing Cloudflare origin cert."
+  echo "👉 Run: cloudflared login (then select your domain)."
+  exit 1
+fi
+
+# Always use root cert for DNS registration
+export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
 
 
 # --- install dependencies ---
