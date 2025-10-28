@@ -4,19 +4,17 @@ set -euo pipefail
 APP_NAME="mysql"
 HOSTNAME="${APP_NAME}.mitechnology.org"
 S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
-S3_CERT_PATH="s3://ryandevlab-bucket/origin.crt"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
-CERT_PATH="$HOME/.cloudflared/cert.pem"
 ROOT_CERT_PATH="/root/.cloudflared/cert.pem"
-USER_HOME=$(getent passwd $SUDO_USER | cut -d: -f6 2>/dev/null || echo "$HOME")
-USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
-# --- Preflight check for Cloudflare certificate ---
-# Detect invoking user’s home (not root)
+# --- Detect invoking user home (works for sudo or non-sudo runs) ---
+USER_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6 2>/dev/null || echo "$HOME")
+USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 
+# --- Preflight check for Cloudflare certificate ---
 if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
   sudo mkdir -p /root/.cloudflared
   sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
@@ -33,8 +31,6 @@ fi
 
 export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
 
-
-
 # --- install dependencies ---
 sudo dnf install -y awscli jq curl policycoreutils || true
 
@@ -49,12 +45,6 @@ fi
 
 # --- prepare dirs ---
 sudo mkdir -p "$TUNNEL_DIR" /root/.cloudflared
-
-# --- fetch origin cert for DNS registration ---
-echo "🔐 Downloading origin cert from S3..."
-sudo aws s3 cp "$S3_CERT_PATH" "$CERT_PATH" --quiet
-sudo chmod 600 "$CERT_PATH"
-export TUNNEL_ORIGIN_CERT="$CERT_PATH"
 
 # --- get cluster IP ---
 if [[ ! -f /etc/minikube/env-info.json ]]; then
@@ -103,7 +93,7 @@ EOF"
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 5
-sudo systemctl status "${SERVICE_NAME}" --no-pager
+sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
@@ -118,4 +108,3 @@ else
   cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
   echo "✅ DNS route created for ${HOSTNAME}."
 fi
-
