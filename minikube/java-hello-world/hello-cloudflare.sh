@@ -22,6 +22,14 @@ if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
   sudo chmod 600 "$ROOT_CERT_PATH"
   echo "✅ Synced Cloudflare cert.pem from $USER_HOME to /root for root/systemd access."
 fi
+# --- Ensure Cloudflare cert is readable by root ---
+if sudo test -f "$ROOT_CERT_PATH"; then
+  sudo chown root:root "$ROOT_CERT_PATH"
+  sudo chmod 600 "$ROOT_CERT_PATH"
+  if command -v restorecon &>/dev/null; then
+    sudo restorecon -Rv /root/.cloudflared >/dev/null 2>&1 || true
+  fi
+fi
 
 # --- Validate cert ---
 if ! sudo test -f "$ROOT_CERT_PATH"; then
