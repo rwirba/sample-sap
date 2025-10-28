@@ -11,6 +11,14 @@ CERT_PATH="/root/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
+# --- Preflight check for Cloudflare certificate ---
+if [[ ! -f /root/.cloudflared/cert.pem ]]; then
+  echo "❌ Cloudflare login certificate missing."
+  echo "👉 Run: sudo cloudflared login  (then select your domain)."
+  exit 1
+fi
+
+
 # --- install dependencies ---
 sudo dnf install -y awscli jq curl policycoreutils || true
 
@@ -84,7 +92,14 @@ sudo systemctl status "${SERVICE_NAME}" --no-pager
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
 # --- Register DNS Route ---
-echo "🌍 Registering DNS route for ${HOSTNAME}..."
-cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" || {
-  echo "⚠️ Failed to register DNS route for ${HOSTNAME}"
-}
+echo "🌍 Checking DNS route for ${HOSTNAME}..."
+
+# List existing routes and check if the hostname already exists
+if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
+  echo "✅ DNS route for ${HOSTNAME} already exists. Skipping re-registration."
+else
+  echo "🆕 Registering new DNS route for ${HOSTNAME}..."
+  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
+  echo "✅ DNS route created for ${HOSTNAME}."
+fi
+
