@@ -16,14 +16,16 @@ USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 
 # --- Preflight check for Cloudflare certificate ---
 if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
+  echo "📁 Copying Cloudflare cert.pem from $USER_HOME to /root..."
   sudo mkdir -p /root/.cloudflared
   sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
   sudo chmod 600 "$ROOT_CERT_PATH"
   echo "✅ Synced Cloudflare cert.pem from $USER_HOME to /root for root/systemd access."
 fi
 
-if [[ ! -f "$ROOT_CERT_PATH" ]]; then
-  echo "❌ Missing Cloudflare origin cert."
+# --- Recheck existence after copy ---
+if ! sudo test -f "$ROOT_CERT_PATH"; then
+  echo "❌ Missing Cloudflare login certificate."
   echo "👉 Run: cloudflared login (then select your domain)."
   echo "   The cert will be saved under ~/.cloudflared/cert.pem automatically."
   exit 1
