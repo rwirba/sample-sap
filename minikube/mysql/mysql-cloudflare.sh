@@ -120,8 +120,7 @@ if ! sudo grep -q "PRIVATE KEY" "$ROOT_CERT_PATH"; then
   exit 1
 fi
 
-# --- Register DNS Route ---
-echo "🌍 Checking DNS route for ${HOSTNAME}..."
+echo "✅ Using existing DNS route for ${HOSTNAME} (skipped re-registration)."
 
 # List existing routes and check if the hostname already exists
 if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
