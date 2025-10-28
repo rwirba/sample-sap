@@ -4,8 +4,10 @@ set -euo pipefail
 APP_NAME="mysql"
 HOSTNAME="${APP_NAME}.mitechnology.org"
 S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
+S3_CERT_PATH="s3://ryandevlab-bucket/origin.crt"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
+CERT_PATH="/root/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
@@ -23,6 +25,12 @@ fi
 
 # --- prepare dirs ---
 sudo mkdir -p "$TUNNEL_DIR" /root/.cloudflared
+
+# --- fetch origin cert for DNS registration ---
+echo "🔐 Downloading origin cert from S3..."
+sudo aws s3 cp "$S3_CERT_PATH" "$CERT_PATH" --quiet
+sudo chmod 600 "$CERT_PATH"
+export TUNNEL_ORIGIN_CERT="$CERT_PATH"
 
 # --- get cluster IP ---
 if [[ ! -f /etc/minikube/env-info.json ]]; then
@@ -45,7 +53,7 @@ tunnel: ${TUNNEL_ID}
 credentials-file: /root/.cloudflared/${TUNNEL_ID}.json
 ingress:
   - hostname: ${HOSTNAME}
-    service: http://${CLUSTER_IP}:3306
+    service: http://${CLUSTER_IP}:30306
   - service: http_status:404
 EOF"
 sudo chmod 644 "${TUNNEL_DIR}/config.yml"
