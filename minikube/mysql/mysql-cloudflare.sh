@@ -9,32 +9,30 @@ TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
 CERT_PATH="$HOME/.cloudflared/cert.pem"
 ROOT_CERT_PATH="/root/.cloudflared/cert.pem"
+USER_HOME=$(getent passwd $SUDO_USER | cut -d: -f6 2>/dev/null || echo "$HOME")
+USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # --- Preflight check for Cloudflare certificate ---
-# Sync from user home if needed
-# --- Preflight check for Cloudflare certificate ---
-# Sync from user home if needed
-if [[ -f "${HOME}/.cloudflared/cert.pem" && ! -f "$ROOT_CERT_PATH" ]]; then
+# Detect invoking user’s home (not root)
+
+if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
   sudo mkdir -p /root/.cloudflared
-  sudo cp "${HOME}/.cloudflared/cert.pem" "$ROOT_CERT_PATH"
+  sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
   sudo chmod 600 "$ROOT_CERT_PATH"
-  echo "✅ Synced Cloudflare cert.pem to /root for root/systemd access."
+  echo "✅ Synced Cloudflare cert.pem from $USER_HOME to /root for root/systemd access."
 fi
 
-# If still missing (fresh instance), tell user to login
 if [[ ! -f "$ROOT_CERT_PATH" ]]; then
   echo "❌ Missing Cloudflare origin cert."
   echo "👉 Run: cloudflared login (then select your domain)."
+  echo "   The cert will be saved under ~/.cloudflared/cert.pem automatically."
   exit 1
 fi
 
-# Always use root cert for DNS registration
 export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
 
-# Always use root cert for DNS registration
-export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
 
 
 # --- install dependencies ---
