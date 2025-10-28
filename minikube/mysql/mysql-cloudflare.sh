@@ -6,37 +6,13 @@ HOSTNAME="${APP_NAME}.mitechnology.org"
 S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
-ROOT_CERT_PATH="/root/.cloudflared/cert.pem"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
-# --- Detect invoking user home (works for sudo or non-sudo runs) ---
-USER_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6 2>/dev/null || echo "$HOME")
-USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
-
-# --- Preflight check for Cloudflare certificate ---
-if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
-  echo "📁 Copying Cloudflare cert.pem from $USER_HOME to /root..."
-  sudo mkdir -p /root/.cloudflared
-  sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
-  sudo chmod 600 "$ROOT_CERT_PATH"
-  echo "✅ Synced Cloudflare cert.pem from $USER_HOME to /root for root/systemd access."
-fi
-
-# --- Recheck existence after copy ---
-if ! sudo test -f "$ROOT_CERT_PATH"; then
-  echo "❌ Missing Cloudflare login certificate."
-  echo "👉 Run: cloudflared login (then select your domain)."
-  echo "   The cert will be saved under ~/.cloudflared/cert.pem automatically."
-  exit 1
-fi
-
-export TUNNEL_ORIGIN_CERT="$ROOT_CERT_PATH"
-
-# --- install dependencies ---
+# --- Dependencies ---
 sudo dnf install -y awscli jq curl policycoreutils || true
 
-# --- ensure cloudflared ---
+# --- Ensure cloudflared ---
 if ! command -v cloudflared &>/dev/null; then
   ARCH=$(uname -m)
   [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
@@ -45,10 +21,10 @@ if ! command -v cloudflared &>/dev/null; then
   sudo chmod +x /usr/local/bin/cloudflared
 fi
 
-# --- prepare dirs ---
+# --- Prepare directories ---
 sudo mkdir -p "$TUNNEL_DIR" /root/.cloudflared
 
-# --- get cluster IP ---
+# --- Get cluster info ---
 if [[ ! -f /etc/minikube/env-info.json ]]; then
   echo "❌ Missing /etc/minikube/env-info.json. Run global-setup.sh first."
   exit 1
@@ -56,13 +32,13 @@ fi
 CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
 echo "🌐 Using cluster IP: $CLUSTER_IP"
 
-# --- download tunnel credentials ---
+# --- Download tunnel credentials ---
 echo "📥 Fetching tunnel credentials for ${APP_NAME}..."
 sudo aws s3 cp "$S3_TUNNEL_PATH" "$TUNNEL_DIR/tunnel.json" --quiet
 TUNNEL_ID=$(sudo jq -r .TunnelID "$TUNNEL_DIR/tunnel.json")
 sudo cp "$TUNNEL_DIR/tunnel.json" "/root/.cloudflared/${TUNNEL_ID}.json"
 
-# --- build config ---
+# --- Build config.yml ---
 echo "⚙️ Generating config for ${HOSTNAME}..."
 sudo bash -c "cat > ${TUNNEL_DIR}/config.yml <<EOF
 tunnel: ${TUNNEL_ID}
@@ -74,7 +50,7 @@ ingress:
 EOF"
 sudo chmod 644 "${TUNNEL_DIR}/config.yml"
 
-# --- systemd service ---
+# --- Create systemd service ---
 echo "🧩 Creating ${SERVICE_NAME}..."
 sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME} <<EOF
 [Unit]
@@ -91,42 +67,11 @@ Environment=HOME=/root
 WantedBy=multi-user.target
 EOF"
 
-# --- reload + enable ---
+# --- Reload + enable service ---
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
-
-# --- Ensure certificate readability ---
-if sudo test -f "$ROOT_CERT_PATH"; then
-  sudo chown root:root "$ROOT_CERT_PATH"
-  sudo chmod 600 "$ROOT_CERT_PATH"
-  # Fix SELinux context if enforced
-  if command -v restorecon &>/dev/null; then
-    sudo restorecon -Rv /root/.cloudflared >/dev/null 2>&1 || true
-  fi
-else
-  echo "❌ Root Cloudflare cert.pem missing unexpectedly."
-  echo "Run: cloudflared login"
-  exit 1
-fi
-
-# --- Verify Cloudflare certificate validity (run as root) ---
-if ! sudo grep -q "PRIVATE KEY" "$ROOT_CERT_PATH"; then
-  echo "⚠️ The file at $ROOT_CERT_PATH doesn't appear to be a valid Cloudflare login certificate."
-  echo "   Run 'cloudflared login' again under your user, then re-run this script."
-  exit 1
-fi
-
 echo "✅ Using existing DNS route for ${HOSTNAME} (skipped re-registration)."
-
-# List existing routes and check if the hostname already exists
-if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
-  echo "✅ DNS route for ${HOSTNAME} already exists. Skipping re-registration."
-else
-  echo "🆕 Registering new DNS route for ${HOSTNAME}..."
-  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
-  echo "✅ DNS route created for ${HOSTNAME}."
-fi
