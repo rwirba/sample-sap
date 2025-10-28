@@ -15,25 +15,17 @@ USER_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6 2>/dev/null || ech
 USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 
 # --- Preflight: sync cert from user home to root ---
-if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
-  echo "📁 Copying Cloudflare cert.pem from $USER_HOME to /root..."
+if [[ -f "$USER_CERT_PATH" ]]; then
+  echo "📁 Ensuring Cloudflare cert.pem is available for both user and root..."
   sudo mkdir -p /root/.cloudflared
-  sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
-  sudo chmod 600 "$ROOT_CERT_PATH"
-  echo "✅ Synced Cloudflare cert.pem from $USER_HOME to /root for root/systemd access."
-fi
-# --- Ensure Cloudflare cert is readable by root ---
-if sudo test -f "$ROOT_CERT_PATH"; then
+  sudo cp -f "$USER_CERT_PATH" "$ROOT_CERT_PATH"
   sudo chown root:root "$ROOT_CERT_PATH"
   sudo chmod 600 "$ROOT_CERT_PATH"
   if command -v restorecon &>/dev/null; then
     sudo restorecon -Rv /root/.cloudflared >/dev/null 2>&1 || true
   fi
-fi
-
-# --- Validate cert ---
-if ! sudo test -f "$ROOT_CERT_PATH"; then
-  echo "❌ Missing Cloudflare login certificate."
+else
+  echo "❌ Missing Cloudflare login certificate for $USER_HOME."
   echo "👉 Run: cloudflared login (then select your domain)."
   exit 1
 fi
@@ -107,10 +99,11 @@ sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
 # --- Verify or register DNS route ---
+echo "🌍 Checking DNS route for ${HOSTNAME}..."
 if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
   echo "✅ DNS route for ${HOSTNAME} already exists."
 else
   echo "🆕 Registering new DNS route for ${HOSTNAME}..."
-  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
+  sudo -E bash -c "TUNNEL_ORIGIN_CERT=${ROOT_CERT_PATH} cloudflared tunnel route dns '${TUNNEL_ID}' '${HOSTNAME}'" && \
   echo "✅ DNS route created for ${HOSTNAME}."
 fi
