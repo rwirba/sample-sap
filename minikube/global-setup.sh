@@ -239,40 +239,43 @@ for APP in "${APPS[@]}"; do
   JSON_FILE="${LOCAL_CF_DIR}/${APP}-tunnel.json"
   S3_FILE="${S3_TUNNEL_PATH}/${APP}-tunnel.json"
 
-  # Check S3 for existing tunnel
+  echo "🔹 Processing tunnel for ${APP}..."
+
+  # 1️⃣ Try to pull existing JSON from S3
   if aws s3 ls "${S3_FILE}" >/dev/null 2>&1; then
-    echo "✅ Tunnel for ${APP} already exists in S3. Downloading..."
+    echo "✅ Tunnel for ${APP} found in S3. Downloading..."
     aws s3 cp "${S3_FILE}" "${JSON_FILE}" --quiet
-else
-  echo "🌐 Checking Cloudflare for existing tunnel: ${APP}-tunnel"
 
-# Check if tunnel already exists in your Cloudflare account
-if cloudflared tunnel list 2>/dev/null | grep -q "${APP}-tunnel"; then
-  echo "✅ Tunnel ${APP}-tunnel already exists in Cloudflare. Fetching its credentials..."
-  TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
-  cloudflared tunnel cleanup "${TUNNEL_ID}" 2>/dev/null || true
-  cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
-else
-  echo "🌐 Creating new tunnel: ${APP}-tunnel"
-  cloudflared tunnel create "${APP}-tunnel"
-fi
+  # 2️⃣ If missing in S3, check if tunnel already exists in Cloudflare
+  elif cloudflared tunnel list 2>/dev/null | grep -q "${APP}-tunnel"; then
+    echo "✅ Tunnel ${APP}-tunnel already exists in Cloudflare. Fetching its credentials..."
+    TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
+    cloudflared tunnel cleanup "${TUNNEL_ID}" 2>/dev/null || true
+    cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
 
-# Wait briefly for file to appear
-sleep 3
-if [[ ! -f "${JSON_FILE}" ]]; then
-  echo "⚠️ Tunnel JSON not found locally. Regenerating using tunnel ID..."
-  TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
-  cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
-fi
+  # 3️⃣ Otherwise create a brand-new one
+  else
+    echo "🌐 Creating new tunnel: ${APP}-tunnel"
+    cloudflared tunnel create "${APP}-tunnel"
+  fi
 
-# Fix ownership
-sudo chown ec2-user:ec2-user "${JSON_FILE}" 2>/dev/null || true
-sudo chmod 600 "${JSON_FILE}" 2>/dev/null || true
+  # 4️⃣ Fallback: regenerate JSON if missing
+  sleep 3
+  if [[ ! -f "${JSON_FILE}" ]]; then
+    echo "⚠️ Tunnel JSON not found locally. Regenerating using tunnel ID..."
+    TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
+    cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
+  fi
 
+  # 5️⃣ Fix ownership
+  sudo chown ec2-user:ec2-user "${JSON_FILE}" 2>/dev/null || true
+  sudo chmod 600 "${JSON_FILE}" 2>/dev/null || true
+
+  # 6️⃣ Upload / refresh in S3
   echo "⬆️ Uploading ${APP}-tunnel.json to S3..."
   aws s3 cp "${JSON_FILE}" "${S3_FILE}" --quiet
-fi
 done
+
 
 
 # ========= RECORD ENVIRONMENT =========
