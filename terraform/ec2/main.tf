@@ -28,7 +28,7 @@ resource "aws_instance" "rhel_demo1" {
               EOF
 
   tags = {
-    Name = "RHEL9-EC2-Demo1"
+    Name = "RHEL9-Demo1"
   }
 }
 
@@ -46,6 +46,6 @@ resource "aws_instance" "rhel_demo2" {
               EOF
 
   tags = {
-    Name = "RHEL9-EC2-Demo2"
+    Name = "RHEL9-Demo2"
   }
 }
