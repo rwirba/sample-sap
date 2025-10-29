@@ -14,7 +14,7 @@ data "aws_security_group" "ryan_sg" {
   name = "ryan-dev-sg"
 }
 
-resource "aws_instance" "rhel9_ec2" {
+resource "aws_instance" "rhel_demo1" {
   ami                    = "ami-0dfc569a8686b9320"
   instance_type          = "t2.medium"
   key_name               = "ryan-key"
@@ -28,6 +28,24 @@ resource "aws_instance" "rhel9_ec2" {
               EOF
 
   tags = {
-    Name = "RHEL9-EC2"
+    Name = "RHEL9-EC2-Demo1"
+  }
+}
+
+resource "aws_instance" "rhel_demo2" {
+  ami                    = "ami-0dfc569a8686b9320"
+  instance_type          = "t2.medium"
+  key_name               = "ryan-key"
+  iam_instance_profile   = "ryan_dev_lab_instance_role"
+  vpc_security_group_ids = [data.aws_security_group.ryan_sg.id]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              dnf -y update
+              dnf -y install git
+              EOF
+
+  tags = {
+    Name = "RHEL9-EC2-Demo2"
   }
 }
