@@ -5,7 +5,8 @@ sudo mkdir -p /opt/minikube
 sudo chown ec2-user:ec2-user /opt/minikube
 cd /opt/minikube
 git clone https://github.com/rwirba/sample-sap.git
-
+cd sample-sap
+git checkout k8s-automation
 
 cloudflared tunnel create global-tunnel
 
