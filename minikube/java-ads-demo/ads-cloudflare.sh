@@ -8,6 +8,17 @@ S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
 
+# --- Ensure cloudflared binary exists ---
+if ! command -v cloudflared &>/dev/null; then
+  ARCH=$(uname -m)
+  [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
+  echo "📦 Installing Cloudflared..."
+  sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
+       -o /usr/local/bin/cloudflared
+  sudo chmod +x /usr/local/bin/cloudflared
+fi
+
+
 echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # ========== DETECT USER & CERT LOCATIONS ==========
