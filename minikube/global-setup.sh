@@ -246,16 +246,28 @@ for APP in "${APPS[@]}"; do
 else
   echo "🌐 Checking Cloudflare for existing tunnel: ${APP}-tunnel"
 
-  # Check if tunnel already exists in your Cloudflare account
-  if cloudflared tunnel list 2>/dev/null | grep -q "${APP}-tunnel"; then
-    echo "✅ Tunnel ${APP}-tunnel already exists in Cloudflare. Fetching its credentials..."
-    TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
-    cloudflared tunnel cleanup "${TUNNEL_ID}" 2>/dev/null || true
-    cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
-  else
-    echo "🌐 Creating new tunnel: ${APP}-tunnel"
-    cloudflared tunnel create "${APP}-tunnel"
-  fi
+# Check if tunnel already exists in your Cloudflare account
+if cloudflared tunnel list 2>/dev/null | grep -q "${APP}-tunnel"; then
+  echo "✅ Tunnel ${APP}-tunnel already exists in Cloudflare. Fetching its credentials..."
+  TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
+  cloudflared tunnel cleanup "${TUNNEL_ID}" 2>/dev/null || true
+  cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
+else
+  echo "🌐 Creating new tunnel: ${APP}-tunnel"
+  cloudflared tunnel create "${APP}-tunnel"
+fi
+
+# Wait briefly for file to appear
+sleep 3
+if [[ ! -f "${JSON_FILE}" ]]; then
+  echo "⚠️ Tunnel JSON not found locally. Regenerating using tunnel ID..."
+  TUNNEL_ID=$(cloudflared tunnel list | grep "${APP}-tunnel" | awk '{print $1}' | head -n1)
+  cloudflared tunnel token --id "${TUNNEL_ID}" > "${JSON_FILE}"
+fi
+
+# Fix ownership
+sudo chown ec2-user:ec2-user "${JSON_FILE}" 2>/dev/null || true
+sudo chmod 600 "${JSON_FILE}" 2>/dev/null || true
 
   echo "⬆️ Uploading ${APP}-tunnel.json to S3..."
   aws s3 cp "${JSON_FILE}" "${S3_FILE}" --quiet
