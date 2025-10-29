@@ -47,10 +47,11 @@ PORT=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')
 echo "🌐 Dashboard running locally at $URL"
 echo "📘 Detected dashboard port: $PORT"
 
-# --- Build Cloudflare config ---
+# --- Build Cloudflare config dynamically ---
 CLOUDFLARE_DIR="/etc/cloudflared/${APP_NAME}"
 CONFIG_FILE="${CLOUDFLARE_DIR}/config.yml"
 PORT=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')
+PROXY_PATH=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:[0-9]+(.*)#\1#')
 
 sudo mkdir -p "$CLOUDFLARE_DIR"
 
@@ -65,6 +66,11 @@ ingress:
       httpHostHeader: 127.0.0.1
   - service: http_status:404
 EOF"
+
+# Restart Cloudflare tunnel
+sudo systemctl daemon-reload
+sudo systemctl restart "${SERVICE_NAME}"
+sleep 3
 
 
 echo "🧩 Updated Cloudflare config: $CONFIG_FILE"
@@ -105,4 +111,5 @@ else
   echo "✅ DNS route already exists for ${HOSTNAME}."
 fi
 
-echo "🎯 Dashboard ready at: https://${HOSTNAME}"
+echo "🎯 Dashboard is ready at: https://${HOSTNAME}${PROXY_PATH}"
+
