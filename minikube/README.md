@@ -1,6 +1,12 @@
 Prereq
 For new domain run
 
+sudo mkdir -p /opt/minikube
+sudo chown ec2-user:ec2-user /opt/minikube
+cd /opt/minikube
+git clone https://github.com/rwirba/sample-sap.git
+
+
 cloudflared tunnel create global-tunnel
 
 copy them over to s3

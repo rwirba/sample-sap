@@ -180,10 +180,29 @@ fi
 
 if ! command -v helm &>/dev/null; then
   echo "📦 Installing Helm..."
-  curl -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
-  tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
-  sudo mv linux-amd64/helm /usr/local/bin/helm
-  rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+
+  # Try direct download first
+  if curl --connect-timeout 10 -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz; then
+    echo "✅ Downloaded Helm from get.helm.sh"
+    tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
+    sudo mv linux-amd64/helm /usr/local/bin/helm
+    rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+
+  # Fallback to S3 (optional)
+  elif aws s3 cp s3://ryandevlab-bucket/helm/helm-v3.13.1-linux-amd64.tar.gz . --quiet; then
+    echo "📦 Downloaded Helm from S3 fallback"
+    tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
+    sudo mv linux-amd64/helm /usr/local/bin/helm
+    rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+
+  # Final fallback: system package manager
+  else
+    echo "⚠️ curl failed. Falling back to dnf install..."
+    sudo dnf install -y helm || {
+      echo "❌ Helm installation failed via all methods."
+      exit 1
+    }
+  fi
 fi
 
 # ========= START MINIKUBE =========
