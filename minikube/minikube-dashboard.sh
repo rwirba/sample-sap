@@ -68,3 +68,4 @@ sleep 3
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
 echo "Dashboard available securely at: https://${HOSTNAME}"
+# 
