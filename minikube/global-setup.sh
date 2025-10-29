@@ -180,7 +180,7 @@ fi
 
 if ! command -v helm &>/dev/null; then
   echo "📦 Installing Helm..."
-  curl -LO https://github.com/helm/helm/releases/download/v3.19.0/helm-v3.19.0-linux-amd64.tar.gz
+  curl -L -O https://github.com/helm/helm/releases/download/v3.19.0/helm-v3.19.0-linux-amd64.tar.gz
   tar -zxf helm-v3.19.0-linux-amd64.tar.gz
   sudo mv linux-amd64/helm /usr/local/bin/helm
   rm -rf linux-amd64 helm-v3.19.0-linux-amd64.tar.gz
