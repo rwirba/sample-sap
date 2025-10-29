@@ -61,16 +61,6 @@ echo "Using cert at $TUNNEL_ORIGIN_CERT"
 # ========== INSTALL DEPENDENCIES ==========
 sudo dnf install -y awscli jq curl policycoreutils || true
 
-# --- Ensure cloudflared binary exists ---
-if ! command -v cloudflared &>/dev/null; then
-  ARCH=$(uname -m)
-  [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
-  echo "📦 Installing Cloudflared..."
-  sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
-       -o /usr/local/bin/cloudflared
-  sudo chmod +x /usr/local/bin/cloudflared
-fi
-
 # ========== LOAD CLUSTER INFO ==========
 if [[ ! -f /etc/minikube/env-info.json ]]; then
   echo "Missing /etc/minikube/env-info.json. Run global-setup.sh first."

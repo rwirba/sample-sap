@@ -67,5 +67,15 @@ sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 3
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
+
+
+echo "Checking DNS route for ${HOSTNAME}..."
+if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
+  echo "DNS route for ${HOSTNAME} already exists."
+else
+  echo "Registering new DNS route for ${HOSTNAME}..."
+  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
+  echo "DNS route created for ${HOSTNAME}."
+fi
+
 echo "Dashboard available securely at: https://${HOSTNAME}"
-# 
