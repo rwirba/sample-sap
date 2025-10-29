@@ -178,37 +178,13 @@ if ! command -v minikube &>/dev/null; then
   chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
 fi
 
+# --- Install Helm ---
 if ! command -v helm &>/dev/null; then
-  echo "📦 Installing Helm from S3..."
-
-  TMPDIR=$(mktemp -d)
-  cd "$TMPDIR"
-
-  aws s3 cp s3://ryandevlab-bucket/helm-3.19.0.tar.gz helm.tar.gz --quiet
-
-  if file helm.tar.gz | grep -q 'gzip compressed'; then
-    tar -zxvf helm.tar.gz
-
-    if [[ -f helm-3.19.0/helm ]]; then
-      sudo mv helm-3.19.0/helm /usr/local/bin/helm
-      sudo chmod +x /usr/local/bin/helm
-      echo "✅ Helm installed successfully."
-    else
-      echo "❌ Helm binary not found in extracted archive."
-      ls -R
-      exit 1
-    fi
-  else
-    echo "❌ Invalid Helm tarball from S3. Aborting."
-    cat helm.tar.gz | head -n 20
-    rm -f helm.tar.gz
-    exit 1
-  fi
-
-  cd ~
-  rm -rf "$TMPDIR"
-else
-  echo "✅ Helm already installed: $(helm version --short)"
+  echo "📦 Installing Helm..."
+  aws s3 cp s3://ryandevlab-bucket/helm-3.19.0.tar.gz helm-3.19.0.tar.gz
+  tar -zxvf helm-3.19.0.tar.gz
+  sudo mv helm-3.19.0/helm /usr/local/bin/helm
+  rm -rf helm-3.19.0 helm-3.19.0.tar.gz
 fi
 
 # ========= START MINIKUBE =========
