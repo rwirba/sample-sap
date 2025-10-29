@@ -187,19 +187,20 @@ if ! command -v helm &>/dev/null; then
   aws s3 cp s3://ryandevlab-bucket/helm-3.19.0.tar.gz helm.tar.gz --quiet
 
   if file helm.tar.gz | grep -q 'gzip compressed'; then
-    tar -zxf helm.tar.gz
+    tar -zxvf helm.tar.gz
 
-    if [[ -f helm ]]; then
-      sudo mv helm /usr/local/bin/helm
+    if [[ -f helm-3.19.0/helm ]]; then
+      sudo mv helm-3.19.0/helm /usr/local/bin/helm
       sudo chmod +x /usr/local/bin/helm
       echo "✅ Helm installed successfully."
     else
-      echo "❌ Helm binary not found after extraction."
+      echo "❌ Helm binary not found in extracted archive."
+      ls -R
       exit 1
     fi
   else
     echo "❌ Invalid Helm tarball from S3. Aborting."
-    cat helm.tar.gz
+    cat helm.tar.gz | head -n 20
     rm -f helm.tar.gz
     exit 1
   fi
