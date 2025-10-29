@@ -181,7 +181,7 @@ fi
 # --- Install Helm ---
 if ! command -v helm &>/dev/null; then
   echo "📦 Installing Helm..."
-  aws s3 cp s3://ryandevlab-bucket/helm-3.19.0.tar.gz helm-3.19.0.tar.gz
+  aws s3 cp s3://ryandevlab-bucket/helm-v3.19.0-linux-amd64.tar.gz helm-3.19.0.tar.gz
   tar -zxvf helm-3.19.0.tar.gz
   sudo mv helm-3.19.0/helm /usr/local/bin/helm
   rm -rf helm-3.19.0 helm-3.19.0.tar.gz
