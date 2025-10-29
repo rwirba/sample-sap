@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="mysql"
-HOSTNAME="${APP_NAME}.mitechnology.org"
+HOSTNAME="${APP_NAME}.ryandemolab.app"
 S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"

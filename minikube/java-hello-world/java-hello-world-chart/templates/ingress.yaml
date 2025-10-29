@@ -14,7 +14,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: hello.mitechnology.org
+    - host: hello.ryandemolab.app
       http:
         paths:
           - path: /

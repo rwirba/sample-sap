@@ -14,7 +14,7 @@ ingress:
   enabled: true
   className: nginx
   hosts:
-    - host: ads.mitechnology.org
+    - host: ads.ryandemolab.app
       paths:
         - path: /
           pathType: Prefix

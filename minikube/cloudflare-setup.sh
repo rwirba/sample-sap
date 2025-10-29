@@ -3,8 +3,8 @@ set -euo pipefail
 
 S3_TUNNEL_PATH="s3://ryandevlab-bucket/cloudflare-tunnel.json"
 TUNNEL_NAME="minikube-tunnel"
-ZONE="mitechnology.org"
-DOMAINS=("hello.mitechnology.org" "ads.mitechnology.org")
+ZONE="ryandemolab.app"
+DOMAINS=("hello.ryandemolab.app" "ads.ryandemolab.app")
 
 echo "🚀 Setting up Cloudflare Tunnel..."
 sudo dnf install -y awscli jq curl policycoreutils || true

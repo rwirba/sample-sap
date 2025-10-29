@@ -9,7 +9,7 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: hello-world.mitechnology.org
+    - host: hello-world.ryandemolab.app
       paths:
         - path: /
           pathType: Exact

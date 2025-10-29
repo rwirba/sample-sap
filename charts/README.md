@@ -48,7 +48,7 @@ kubectl create secret generic s4hanna-secret \
 some errors you might run into
 
 helm upgrade s4hanna . --namespace demo
-Error: UPGRADE FAILED: failed to create resource: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: host "sap4hanna.mitechnology.org" and path "/" is already defined in ingress demo/sap4hanna-chart-ingress
+Error: UPGRADE FAILED: failed to create resource: admission webhook "validate.nginx.ingress.kubernetes.io" denied the request: host "sap4hanna.ryandemolab.app" and path "/" is already defined in ingress demo/sap4hanna-chart-ingress
 [root@aks-toolkit sap4hanna]# kubectl delete ingress sap4hanna-chart-ingress -n demo
 
 
