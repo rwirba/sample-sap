@@ -12,36 +12,36 @@ SERVICE_NAME="cloudflared-${APP_NAME}.service"
 if ! command -v cloudflared &>/dev/null; then
   ARCH=$(uname -m)
   [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
-  echo "📦 Installing Cloudflared..."
+  echo "Installing Cloudflared..."
   sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
        -o /usr/local/bin/cloudflared
   sudo chmod +x /usr/local/bin/cloudflared
 fi
 
 
-echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}..."
+echo "Setting up Cloudflare Tunnel for ${APP_NAME}..."
 
 # ========== DETECT USER & CERT LOCATIONS ==========
 USER_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6 2>/dev/null || echo "$HOME")
 USER_CERT_PATH="${USER_HOME}/.cloudflared/cert.pem"
 ROOT_CERT_PATH="/root/.cloudflared/cert.pem"
 
-echo "📁 Checking Cloudflare cert.pem..."
+echo "Checking Cloudflare cert.pem..."
 
 # --- Case 1: cert exists only under user home
 if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
-  echo "📥 Copying Cloudflare cert from $USER_CERT_PATH to /root/.cloudflared..."
+  echo "Copying Cloudflare cert from $USER_CERT_PATH to /root/.cloudflared..."
   sudo mkdir -p /root/.cloudflared
   sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
   sudo chmod 600 "$ROOT_CERT_PATH"
   sudo chown root:root "$ROOT_CERT_PATH"
-  echo "✅ Cert copied to /root/.cloudflared"
+  echo "Cert copied to /root/.cloudflared"
 fi
 
 # --- Case 2: cert missing entirely
 if [[ ! -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
-  echo "❌ Cloudflare login certificate missing!"
-  echo "👉 Run the following, then rerun this script:"
+  echo "Cloudflare login certificate missing!"
+  echo "Run the following, then rerun this script:"
   echo ""
   echo "   cloudflared login"
   echo ""
@@ -56,7 +56,7 @@ else
   export TUNNEL_ORIGIN_CERT="$USER_CERT_PATH"
 fi
 
-echo "✅ Using cert at $TUNNEL_ORIGIN_CERT"
+echo "Using cert at $TUNNEL_ORIGIN_CERT"
 
 # ========== INSTALL DEPENDENCIES ==========
 sudo dnf install -y awscli jq curl policycoreutils || true
@@ -73,7 +73,7 @@ fi
 
 # ========== LOAD CLUSTER INFO ==========
 if [[ ! -f /etc/minikube/env-info.json ]]; then
-  echo "❌ Missing /etc/minikube/env-info.json. Run global-setup.sh first."
+  echo "Missing /etc/minikube/env-info.json. Run global-setup.sh first."
   exit 1
 fi
 CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
@@ -86,7 +86,7 @@ TUNNEL_ID=$(sudo jq -r .TunnelID "$TUNNEL_DIR/tunnel.json")
 sudo cp "$TUNNEL_DIR/tunnel.json" "/root/.cloudflared/${TUNNEL_ID}.json"
 
 # ========== GENERATE CONFIG ==========
-echo "⚙️ Generating ${TUNNEL_DIR}/config.yml..."
+echo "Generating ${TUNNEL_DIR}/config.yml..."
 sudo bash -c "cat > ${TUNNEL_DIR}/config.yml <<EOF
 tunnel: ${TUNNEL_ID}
 credentials-file: /root/.cloudflared/${TUNNEL_ID}.json
@@ -98,7 +98,7 @@ EOF"
 sudo chmod 644 "${TUNNEL_DIR}/config.yml"
 
 # ========== CREATE SYSTEMD SERVICE ==========
-echo "🧩 Creating ${SERVICE_NAME}..."
+echo "Creating ${SERVICE_NAME}..."
 sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME} <<EOF
 [Unit]
 Description=Cloudflare Tunnel - ${APP_NAME}
@@ -121,14 +121,14 @@ sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
-echo "✅ Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
+echo "Tunnel for ${APP_NAME} ready at https://${HOSTNAME}"
 
 # ========== DNS REGISTRATION ==========
-echo "🌍 Checking DNS route for ${HOSTNAME}..."
+echo "Checking DNS route for ${HOSTNAME}..."
 if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
-  echo "✅ DNS route for ${HOSTNAME} already exists."
+  echo "DNS route for ${HOSTNAME} already exists."
 else
-  echo "🆕 Registering new DNS route for ${HOSTNAME}..."
+  echo "Registering new DNS route for ${HOSTNAME}..."
   cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
-  echo "✅ DNS route created for ${HOSTNAME}."
+  echo "DNS route created for ${HOSTNAME}."
 fi
