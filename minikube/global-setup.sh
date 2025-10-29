@@ -179,11 +179,20 @@ if ! command -v minikube &>/dev/null; then
 fi
 
 if ! command -v helm &>/dev/null; then
-  echo "📦 Installing Helm..."
-  curl -L -O https://github.com/helm/helm/releases/download/v3.19.0/helm-v3.19.0-linux-amd64.tar.gz
-  tar -zxf helm-v3.19.0-linux-amd64.tar.gz
-  sudo mv linux-amd64/helm /usr/local/bin/helm
-  rm -rf linux-amd64 helm-v3.19.0-linux-amd64.tar.gz
+  echo "📦 Installing Helm from SourceForge mirror..."
+  curl -L -o helm.tar.gz https://sourceforge.net/projects/helm.mirror/files/v3.19.0/helm-v3.19.0-linux-amd64.tar.gz/download
+
+  if file helm.tar.gz | grep -q 'gzip compressed'; then
+    tar -zxf helm.tar.gz
+    sudo mv linux-amd64/helm /usr/local/bin/helm
+    rm -rf linux-amd64 helm.tar.gz
+    echo "✅ Helm installed successfully."
+  else
+    echo "❌ Download failed or file is not a valid tarball."
+    cat helm.tar.gz
+    rm -f helm.tar.gz
+    exit 1
+  fi
 else
   echo "✅ Helm already installed: $(helm version --short)"
 fi
