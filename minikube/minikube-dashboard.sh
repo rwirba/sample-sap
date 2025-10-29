@@ -47,20 +47,25 @@ PORT=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')
 echo "🌐 Dashboard running locally at $URL"
 echo "📘 Detected dashboard port: $PORT"
 
-# --- Generate config.yml dynamically ---
-sudo mkdir -p "$CONFIG_DIR"
-sudo bash -c "cat > $CONFIG_FILE <<EOF
-tunnel: ${TUNNEL_ID}
-credentials-file: ${CRED_FILE}
+# --- Build Cloudflare config ---
+CLOUDFLARE_DIR="/etc/cloudflared/${APP_NAME}"
+CONFIG_FILE="${CLOUDFLARE_DIR}/config.yml"
+PORT=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')
 
+sudo mkdir -p "$CLOUDFLARE_DIR"
+
+sudo bash -c "cat > ${CONFIG_FILE} <<EOF
+tunnel: ${TUNNEL_ID}
+credentials-file: /home/ec2-user/.cloudflared/${TUNNEL_ID}.json
 ingress:
   - hostname: ${HOSTNAME}
-    service: http://127.0.0.1:${PORT}/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/
+    service: http://127.0.0.1:${PORT}
     originRequest:
       noTLSVerify: true
       httpHostHeader: 127.0.0.1
   - service: http_status:404
 EOF"
+
 
 echo "🧩 Updated Cloudflare config: $CONFIG_FILE"
 
