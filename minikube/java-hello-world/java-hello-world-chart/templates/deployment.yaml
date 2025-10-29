@@ -18,21 +18,31 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: 8080
+
         volumeMounts:
         - name: data-volume
           mountPath: {{ .Values.persistence.mountPath }}
+
         readinessProbe:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          initialDelaySeconds: 20     # Wait longer before first check
+          periodSeconds: 15           # Check less frequently
+          timeoutSeconds: 5           # Allow slower responses
+          failureThreshold: 5         # Allow more missed probes
+          successThreshold: 1
+
         livenessProbe:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30     # Give app time to warm up
           periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 5
+          successThreshold: 1
+
       volumes:
       - name: data-volume
         persistentVolumeClaim:
