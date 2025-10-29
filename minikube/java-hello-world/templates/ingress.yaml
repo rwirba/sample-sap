@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "java-hello-world.fullname" . }}-ingress
+  name: {{ include "java-hello-world.name" . }}-ingress
   labels:
     app: {{ include "java-hello-world.name" . }}
   annotations:
