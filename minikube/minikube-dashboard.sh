@@ -2,15 +2,18 @@
 set -euo pipefail
 
 APP_NAME="dashboard"
-HOSTNAME="${APP_NAME}.ryandemolab.app"
+DOMAIN="ryandemolab.app"
+HOSTNAME="${APP_NAME}.${DOMAIN}"
 TUNNEL_DIR="/etc/cloudflared/${APP_NAME}"
 SERVICE_NAME="cloudflared-${APP_NAME}.service"
-ROOT_CERT_PATH="/home/ec2-user/.cloudflared/cert.pem"
+CERT_PATH="/home/ec2-user/.cloudflared/cert.pem"
 GLOBAL_ENV_INFO="/etc/minikube/env-info.json"
 
-echo "🚀 Setting up Cloudflare Tunnel for Kubernetes Dashboard..."
+echo "🚀 Setting up Cloudflare Tunnel for ${APP_NAME}.${DOMAIN}..."
 
-# --- Ensure cloudflared installed ---
+# ============================================================
+# 1️⃣ Ensure cloudflared installed
+# ============================================================
 if ! command -v cloudflared &>/dev/null; then
   ARCH=$(uname -m)
   [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
@@ -20,78 +23,76 @@ if ! command -v cloudflared &>/dev/null; then
   sudo chmod +x /usr/local/bin/cloudflared
 fi
 
-# --- Ensure Cloudflare cert exists ---
-if [[ ! -f "$ROOT_CERT_PATH" ]]; then
+# ============================================================
+# 2️⃣ Verify cert.pem (Cloudflare login)
+# ============================================================
+if [[ ! -f "$CERT_PATH" ]]; then
   echo "❌ Missing Cloudflare cert.pem."
-  echo "👉 Run: cloudflared login (then select your domain)."
+  echo "👉 Run 'cloudflared login' (select ${DOMAIN}) before re-running this script."
   exit 1
 fi
 
-# --- Ensure tunnel credentials exist or reuse from global setup ---
+# ============================================================
+# 3️⃣ Detect or create Cloudflare tunnel (re-use global one)
+# ============================================================
 GLOBAL_TUNNEL_ID=""
-GLOBAL_TUNNEL_FILE=""
-
 if [[ -f "$GLOBAL_ENV_INFO" ]]; then
-  GLOBAL_TUNNEL_ID=$(jq -r .tunnel_id "$GLOBAL_ENV_INFO" 2>/dev/null || true)
-  [[ "$GLOBAL_TUNNEL_ID" != "null" && -n "$GLOBAL_TUNNEL_ID" ]] && \
-  GLOBAL_TUNNEL_FILE="/root/.cloudflared/${GLOBAL_TUNNEL_ID}.json"
+  GLOBAL_TUNNEL_ID=$(jq -r '.tunnel_id // empty' "$GLOBAL_ENV_INFO" 2>/dev/null || true)
 fi
 
-TUNNEL_CRED_PATH="/home/ec2-user/.cloudflared/${APP_NAME}-tunnel.json"
-
-if [[ ! -f "$TUNNEL_CRED_PATH" ]]; then
-  # If a global tunnel exists, reuse it
-  if [[ -n "$GLOBAL_TUNNEL_ID" && -f "$GLOBAL_TUNNEL_FILE" ]]; then
-    echo "♻️ Reusing global Cloudflare tunnel credentials..."
-    sudo cp "$GLOBAL_TUNNEL_FILE" "$TUNNEL_CRED_PATH"
-  else
-    # Otherwise create a local tunnel if none exists
-    if cloudflared tunnel list 2>/dev/null | grep -q "${APP_NAME}-tunnel"; then
-      echo "✅ Existing tunnel '${APP_NAME}-tunnel' found, skipping creation."
-    else
-      echo "🆕 Creating new Cloudflare tunnel: ${APP_NAME}-tunnel"
-      cloudflared tunnel create "${APP_NAME}-tunnel"
-    fi
-  fi
+# If global tunnel is known, reuse it
+if [[ -n "$GLOBAL_TUNNEL_ID" ]]; then
+  echo "♻️ Reusing existing global tunnel ID: $GLOBAL_TUNNEL_ID"
 else
-  echo "✅ Using existing local tunnel credentials at $TUNNEL_CRED_PATH"
+  echo "🆕 Creating new Cloudflare tunnel..."
+  cloudflared tunnel create "${APP_NAME}-tunnel" || true
+  GLOBAL_TUNNEL_ID=$(cloudflared tunnel list | grep "${APP_NAME}-tunnel" | awk '{print $2}' | head -n1)
+  [[ -z "$GLOBAL_TUNNEL_ID" ]] && { echo "❌ Failed to detect tunnel ID."; exit 1; }
 fi
 
-# --- Get Tunnel ID ---
-TUNNEL_ID=$(cloudflared tunnel list | grep "${APP_NAME}-tunnel" | awk '{print $2}' | head -n1)
-if [[ -z "$TUNNEL_ID" ]]; then
-  echo "❌ Could not detect tunnel ID for ${APP_NAME}-tunnel."
+# ============================================================
+# 4️⃣ Locate the actual credentials file automatically
+# ============================================================
+CRED_FILE=$(find /home/ec2-user/.cloudflared -maxdepth 1 -type f -name "${GLOBAL_TUNNEL_ID}.json" | head -n1 || true)
+if [[ -z "$CRED_FILE" ]]; then
+  echo "❌ Could not find credentials for tunnel ${GLOBAL_TUNNEL_ID}."
+  echo "Try re-running: cloudflared tunnel create ${APP_NAME}-tunnel"
   exit 1
 fi
-echo "📘 Tunnel ID: $TUNNEL_ID"
+echo "🔐 Using credentials file: $CRED_FILE"
 
-# --- Launch Kubernetes Dashboard ---
+# ============================================================
+# 5️⃣ Launch Kubernetes dashboard (auto-reuse)
+# ============================================================
 if ! pgrep -f "minikube dashboard" >/dev/null 2>&1; then
   echo "🧭 Launching Kubernetes Dashboard..."
   nohup minikube dashboard --port=8001 --url >/tmp/dashboard-url.txt 2>&1 &
-  sleep 6
+  sleep 5
 else
-  echo "✅ Dashboard process already running."
+  echo "✅ Dashboard already running."
 fi
 
 URL=$(grep -o 'http://127.0.0.1:[0-9]\+' /tmp/dashboard-url.txt | head -n1 || echo "http://127.0.0.1:8001")
 echo "🌐 Dashboard local URL: $URL"
 
-# --- Build Cloudflare Tunnel Config ---
+# ============================================================
+# 6️⃣ Build config.yml safely (always correct)
+# ============================================================
 sudo mkdir -p "$TUNNEL_DIR"
 sudo bash -c "cat > ${TUNNEL_DIR}/config.yml <<EOF
-tunnel: ${TUNNEL_ID}
-credentials-file: ${TUNNEL_CRED_PATH}
+tunnel: ${GLOBAL_TUNNEL_ID}
+credentials-file: ${CRED_FILE}
 ingress:
   - hostname: ${HOSTNAME}
     service: ${URL}
   - service: http_status:404
 EOF"
+echo "🧩 Config file updated: ${TUNNEL_DIR}/config.yml"
 
-# --- Create Systemd Service (idempotent) ---
-echo "🧩 Ensuring ${SERVICE_NAME} is configured..."
-if [[ ! -f "/etc/systemd/system/${SERVICE_NAME}" ]]; then
-  sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME} <<EOF
+# ============================================================
+# 7️⃣ Create or refresh systemd service
+# ============================================================
+sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME} <<EOF
 [Unit]
 Description=Cloudflare Tunnel - ${APP_NAME}
 After=network.target
@@ -105,27 +106,27 @@ Environment=HOME=/home/ec2-user
 [Install]
 WantedBy=multi-user.target
 EOF"
-fi
 
-# --- Start & enable tunnel service ---
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 3
+
 if systemctl is-active --quiet "${SERVICE_NAME}"; then
-  echo "✅ ${SERVICE_NAME} is running."
+  echo "✅ ${SERVICE_NAME} is active and running."
 else
-  echo "⚠️ ${SERVICE_NAME} failed to start — check logs via:"
-  echo "   sudo journalctl -u ${SERVICE_NAME} -e"
+  echo "⚠️ ${SERVICE_NAME} failed — check logs:"
+  echo "   sudo journalctl -u ${SERVICE_NAME} -e | tail -n 30"
+  exit 1
 fi
 
-# --- Register DNS Route (idempotent) ---
-echo "🌍 Checking DNS route for ${HOSTNAME}..."
+# ============================================================
+# 8️⃣ Ensure DNS mapping exists
+# ============================================================
 if cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
   echo "✅ DNS route for ${HOSTNAME} already exists."
 else
-  echo "🆕 Registering new DNS route for ${HOSTNAME}..."
-  cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" && \
-  echo "✅ DNS route created for ${HOSTNAME}."
+  echo "🌍 Registering DNS route for ${HOSTNAME}..."
+  cloudflared tunnel route dns "${GLOBAL_TUNNEL_ID}" "${HOSTNAME}"
 fi
 
 echo "🎯 Dashboard available securely at: https://${HOSTNAME}"
