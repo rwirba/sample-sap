@@ -1,0 +1,16 @@
+namespace: kubernetes-dashboard
+domain: ryandemolab.app
+hostname: dashboard.ryandemolab.app
+
+image:
+  repository: kubernetesui/dashboard
+  tag: v2.7.0
+
+service:
+  port: 80
+  targetPort: 443
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
