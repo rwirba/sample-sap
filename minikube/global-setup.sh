@@ -178,7 +178,7 @@ if ! command -v minikube &>/dev/null; then
   chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
 fi
 
-sudo dnf install helm
+sudo dnf install helm -y
 
 # ========= START MINIKUBE =========
 if ! minikube status | grep -q "Running"; then
