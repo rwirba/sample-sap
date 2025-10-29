@@ -10,8 +10,8 @@ if ! kubectl get ns kubernetes-dashboard &>/dev/null; then
 fi
 
 # Apply ingress and service YAML
-echo "🧱 Applying dashboard-ingress.yml..."
-kubectl apply -f ingress.yml .
+echo "🧱 Applying dashboard-ingress.yaml..."
+kubectl apply -f ingress.yaml
 
 # Wait for resources to be ready
 echo "⏳ Waiting for ingress to be applied..."
