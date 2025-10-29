@@ -11,7 +11,7 @@ fi
 
 # Apply ingress and service YAML
 echo "🧱 Applying dashboard-ingress.yml..."
-kubectl apply -f dashboard-ingress.yml
+kubectl apply -f ingress.yml
 
 # Wait for resources to be ready
 echo "⏳ Waiting for ingress to be applied..."
