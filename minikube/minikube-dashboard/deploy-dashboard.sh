@@ -1,24 +1,57 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🚀 Deploying Minikube Kubernetes Dashboard ingress and service..."
+echo "🚀 Deploying Minikube Kubernetes Dashboard via Helm..."
 
-# Ensure namespace exists
-if ! kubectl get ns kubernetes-dashboard &>/dev/null; then
-  echo "📦 Creating namespace: kubernetes-dashboard"
-  kubectl create ns kubernetes-dashboard
+APP_NAME="minikube-dashboard"
+NAMESPACE="kubernetes-dashboard"
+TOKEN_FILE="/etc/minikube/dashboard-token.txt"
+S3_BUCKET="ryandevlab-bucket"
+S3_TOKEN_PATH="s3://${S3_BUCKET}/dashboard-token.txt"
+
+# --- Ensure namespace exists ---
+if ! kubectl get ns "$NAMESPACE" &>/dev/null; then
+  echo "📦 Creating namespace: $NAMESPACE"
+  kubectl create ns "$NAMESPACE"
 fi
 
-# Apply ingress and service YAML
-echo "🧱 Applying dashboard-ingress.yaml..."
-kubectl apply -f ingress.yaml
+# --- Install or upgrade the chart directly ---
+if helm list -n "$NAMESPACE" | grep -q "$APP_NAME"; then
+  echo "🔁 Upgrading existing Dashboard release..."
+else
+  echo "🧩 Installing new Dashboard release..."
+fi
 
-# Wait for resources to be ready
-echo "⏳ Waiting for ingress to be applied..."
-kubectl rollout status deployment/kubernetes-dashboard -n kubernetes-dashboard --timeout=90s || true
+helm upgrade --install "$APP_NAME" ./minikube-dashboard-chart -n "$NAMESPACE" --create-namespace
 
-# Verify ingress address
-echo "🔍 Current Ingress:"
-kubectl get ingress -n kubernetes-dashboard
+# --- Wait for Dashboard pods to be ready ---
+echo "⏳ Waiting for Dashboard pods to become ready..."
+kubectl wait --for=condition=Ready pod -l k8s-app=kubernetes-dashboard -n "$NAMESPACE" --timeout=180s || true
 
-echo "✅ Dashboard ingress successfully applied."
+# --- Verify ingress ---
+echo "🔍 Current Ingress resources:"
+kubectl get ingress -n "$NAMESPACE"
+
+# --- Generate admin token ---
+echo "🔑 Generating admin-user token..."
+TOKEN=$(kubectl -n "$NAMESPACE" create token admin-user)
+
+if [[ -z "$TOKEN" ]]; then
+  echo "❌ Failed to generate token. Check admin-user service account and role binding."
+  exit 1
+fi
+
+# --- Save token locally ---
+sudo mkdir -p /etc/minikube
+echo "$TOKEN" | sudo tee "$TOKEN_FILE" >/dev/null
+sudo chmod 600 "$TOKEN_FILE"
+
+# --- Upload token to S3 for central access ---
+echo "⬆️ Uploading token to S3..."
+aws s3 cp "$TOKEN_FILE" "$S3_TOKEN_PATH" --quiet || echo "⚠️ Skipped S3 upload (check AWS CLI credentials)."
+
+# --- Summary ---
+echo "✅ Dashboard deployed successfully!"
+echo "🔑 Token saved to: $TOKEN_FILE"
+echo "☁️ Token uploaded to: $S3_TOKEN_PATH"
+echo "🌐 Access it at: https://dashboard.ryandemolab.app"
