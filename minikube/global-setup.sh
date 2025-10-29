@@ -184,23 +184,26 @@ if ! command -v helm &>/dev/null; then
   TMPDIR=$(mktemp -d)
   cd "$TMPDIR"
 
-  # Download from S3
   aws s3 cp s3://ryandevlab-bucket/helm-3.19.0.tar.gz helm.tar.gz --quiet
 
-  # Validate and extract
   if file helm.tar.gz | grep -q 'gzip compressed'; then
     tar -zxf helm.tar.gz
-    sudo mv linux-amd64/helm /usr/local/bin/helm
-    sudo chmod +x /usr/local/bin/helm
-    echo "✅ Helm installed successfully."
+
+    if [[ -f helm ]]; then
+      sudo mv helm /usr/local/bin/helm
+      sudo chmod +x /usr/local/bin/helm
+      echo "✅ Helm installed successfully."
+    else
+      echo "❌ Helm binary not found after extraction."
+      exit 1
+    fi
   else
     echo "❌ Invalid Helm tarball from S3. Aborting."
-    cat helm.tar.gz  # Optional: show error content
+    cat helm.tar.gz
     rm -f helm.tar.gz
     exit 1
   fi
 
-  # Clean up
   cd ~
   rm -rf "$TMPDIR"
 else
