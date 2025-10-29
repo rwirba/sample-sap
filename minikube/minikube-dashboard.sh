@@ -41,7 +41,9 @@ if [[ -z "$URL" ]]; then
   exit 1
 fi
 
-PORT=$(echo "$URL" | grep -Eo '[0-9]+' | head -n1)
+# ✅ Correct port extraction
+PORT=$(echo "$URL" | sed -E 's#.*127\.0\.0\.1:([0-9]+).*#\1#')
+
 echo "🌐 Dashboard running locally at $URL"
 echo "📘 Detected dashboard port: $PORT"
 
