@@ -224,6 +224,8 @@ rm -rf "$TMPDIR"
 # ========= CLOUDFLARE TUNNELS SETUP =========
 echo "🧭 Checking Cloudflare tunnels..."
 sudo mkdir -p "$LOCAL_CF_DIR"
+sudo chown -R ec2-user:ec2-user "$LOCAL_CF_DIR"
+sudo chmod 700 "$LOCAL_CF_DIR"
 
 # Make sure user has logged in once
 if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
