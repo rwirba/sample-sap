@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "minikube-dashboard.fullname" . }}
+  name: {{ include "minikube-dashboard.name" . }}
   labels:
     app: kubernetes-dashboard
     app.kubernetes.io/managed-by: Helm
