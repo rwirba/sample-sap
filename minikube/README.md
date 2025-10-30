@@ -1,9 +1,3 @@
-
-
-Absolutely, Shey — here’s a polished and professional version of your README that clearly documents the prerequisites and setup steps for onboarding a new domain with Minikube, Cloudflare Tunnel, and your demo app:
-
----
-
 ## 🚀 Prerequisites for New Domain Setup
 
 This guide outlines the steps required to prepare a new domain for Kubernetes-based demos using Minikube, Cloudflare Tunnel, and the `sample-sap` repository.
@@ -92,5 +86,4 @@ curl -sv "http://${MINIKUBE_IP}:${NODE_PORT}"
 ```
 
 ---
-
-Let me know if you'd like to add Helm install steps, automate the Cloudflare tunnel creation, or wrap this into a full onboarding script. I can also help you version this README for multiple environments or demo tiers.
+agy@bge6EJX.efh1jwr
