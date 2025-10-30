@@ -4,7 +4,6 @@ metadata:
   name: {{ include "minikube-dashboard.name" . }}
   labels:
     app: kubernetes-dashboard
-    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -31,9 +30,10 @@ spec:
             - --auto-generate-certificates
             - --token-ttl=43200
           volumeMounts:
-            - mountPath: /certs
-              name: kubernetes-dashboard-certs
-              readOnly: false
+            - name: kubernetes-dashboard-certs
+              mountPath: /certs
+            - name: tmp
+              mountPath: /tmp
           livenessProbe:
             httpGet:
               scheme: HTTPS
@@ -50,4 +50,6 @@ spec:
             timeoutSeconds: 5
       volumes:
         - name: kubernetes-dashboard-certs
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
