@@ -85,8 +85,12 @@ sudo systemctl restart "${SERVICE_NAME}"
 sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
-echo "🔁 Ensuring DNS record is correct..."
-cloudflared tunnel route dns ${APP_NAME}-tunnel ${HOSTNAME} || true
+if ! cloudflared tunnel route dns ${APP_NAME}-tunnel ${HOSTNAME} 2>&1 | grep -q "already exists"; then
+  echo "✅ DNS record created for ${HOSTNAME}"
+else
+  echo "ℹ️ DNS record already exists for ${HOSTNAME}, skipping..."
+fi
+
 
 
 echo "✅ ${APP_NAME} app now accessible at: https://${HOSTNAME}"
