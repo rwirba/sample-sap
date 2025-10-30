@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "minikube-dashboard.name" . }}
+  name: {{ include "minikube-dashboard.fullname" . }}
   labels:
     app: kubernetes-dashboard
     app.kubernetes.io/managed-by: Helm
@@ -29,6 +29,11 @@ spec:
             - --enable-skip-login
             - --disable-settings-authorizer
             - --auto-generate-certificates
+            - --token-ttl=43200
+          volumeMounts:
+            - mountPath: /certs
+              name: kubernetes-dashboard-certs
+              readOnly: false
           livenessProbe:
             httpGet:
               scheme: HTTPS
@@ -43,3 +48,6 @@ spec:
               port: {{ .Values.service.targetPort }}
             initialDelaySeconds: 10
             timeoutSeconds: 5
+      volumes:
+        - name: kubernetes-dashboard-certs
+          emptyDir: {}
