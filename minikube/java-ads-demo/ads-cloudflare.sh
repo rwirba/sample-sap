@@ -85,7 +85,8 @@ sudo systemctl restart "${SERVICE_NAME}"
 sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
-# --- Validate tunnel connectivity ---
-cloudflared tunnel info "${APP_NAME}-tunnel" || true
+echo "🔁 Ensuring DNS record is correct..."
+cloudflared tunnel route dns ${APP_NAME}-tunnel ${HOSTNAME} || true
+
 
 echo "✅ ${APP_NAME} app now accessible at: https://${HOSTNAME}"
