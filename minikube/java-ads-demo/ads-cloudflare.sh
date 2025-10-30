@@ -13,42 +13,35 @@ CONFIG_FILE="${CONFIG_DIR}/config.yml"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${HOSTNAME}..."
 
-# --- Fetch tunnel credentials from S3 ---
+# --- Download tunnel credentials from S3 ---
 echo "📥 Downloading tunnel credentials..."
 aws s3 cp "${TUNNEL_S3}" "${CRED_FILE}" --quiet
 if [[ ! -f "$CRED_FILE" ]]; then
-  echo "❌ Failed to download tunnel credentials from S3. Exiting."
+  echo "❌ Failed to download tunnel credentials from S3."
   exit 1
 fi
 
 TUNNEL_ID=$(jq -r .TunnelID "${CRED_FILE}")
 
-# --- Ensure service exists ---
-if ! kubectl get svc java-ads-demo -n "${NAMESPACE}" >/dev/null 2>&1; then
-  echo "❌ Service java-ads-demo not found in namespace ${NAMESPACE}."
+# --- Ensure service is NodePort ---
+if ! kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" &>/dev/null; then
+  echo "❌ Service java-${APP_NAME}-demo not found in namespace ${NAMESPACE}"
   exit 1
 fi
 
-# --- Check and patch service type if needed ---
-SERVICE_TYPE=$(kubectl get svc java-ads-demo -n "${NAMESPACE}" -o jsonpath='{.spec.type}')
+SERVICE_TYPE=$(kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" -o jsonpath='{.spec.type}')
 if [[ "${SERVICE_TYPE}" != "NodePort" ]]; then
-  echo "🔧 Converting service java-ads-demo from ${SERVICE_TYPE} to NodePort..."
-  kubectl patch svc java-ads-demo -n "${NAMESPACE}" -p '{"spec": {"type": "NodePort"}}' >/dev/null
-  sleep 3
+  echo "🔧 Patching service java-${APP_NAME}-demo to NodePort..."
+  kubectl patch svc java-${APP_NAME}-demo -n "${NAMESPACE}" -p '{"spec": {"type": "NodePort"}}' >/dev/null
+  sleep 4
 fi
 
-# --- Get Minikube IP and NodePort ---
+# --- Extract Minikube IP and NodePort ---
 MINIKUBE_IP=$(minikube ip)
-NODE_PORT=""
-for i in {1..5}; do
-  NODE_PORT=$(kubectl get svc java-ads-demo -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)
-  if [[ -n "${NODE_PORT}" ]]; then break; fi
-  echo "⏳ Waiting for NodePort to be assigned..."
-  sleep 3
-done
+NODE_PORT=$(kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].nodePort}')
 
-if [[ -z "${NODE_PORT}" ]]; then
-  echo "❌ Failed to detect NodePort for java-ads-demo service. Exiting."
+if [[ -z "$NODE_PORT" ]]; then
+  echo "❌ Failed to obtain NodePort from service."
   exit 1
 fi
 
@@ -68,7 +61,7 @@ ingress:
   - service: http_status:404
 EOF
 
-# --- Create systemd service ---
+# --- Create systemd unit ---
 sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME}" <<EOF
 [Unit]
 Description=Cloudflare Tunnel - ${APP_NAME}
@@ -84,7 +77,7 @@ Environment=HOME=/home/ec2-user
 WantedBy=multi-user.target
 EOF
 
-# --- Restart Cloudflared ---
+# --- Restart cloudflared service ---
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}" --now
 sudo systemctl restart "${SERVICE_NAME}"
@@ -92,7 +85,7 @@ sudo systemctl restart "${SERVICE_NAME}"
 sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
-# --- Verify tunnel health ---
+# --- Validate tunnel connectivity ---
 cloudflared tunnel info "${APP_NAME}-tunnel" || true
 
-echo "✅ ${APP_NAME} app available at: https://${HOSTNAME}"
+echo "✅ ${APP_NAME} app now accessible at: https://${HOSTNAME}"
