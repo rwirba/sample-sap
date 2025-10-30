@@ -139,9 +139,12 @@ INGRESS_FILE="/opt/minikube/ads-ingress.yml"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${HOSTNAME}..."
 sudo mkdir -p ~/.cloudflared "$CONFIG_DIR"
-sudo cp "$TUNNEL_JSON" "$CRED_FILE"
+
+aws s3 cp "$TUNNEL_JSON" "$CRED_FILE"
+
 TUNNEL_ID=$(jq -r .TunnelID "$CRED_FILE")
 CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
+
 
 sudo bash -c "cat > ${CONFIG_FILE} <<EOF
 tunnel: ${TUNNEL_ID}

@@ -30,7 +30,7 @@
 
 # # --- Case 1: cert exists only under user home
 # if [[ -f "$USER_CERT_PATH" && ! -f "$ROOT_CERT_PATH" ]]; then
-#   echo "📥 Copying Cloudflare cert from $USER_CERT_PATH to /root/.cloudflared..."
+#   echo "Copying Cloudflare cert from $USER_CERT_PATH to /root/.cloudflared..."
 #   sudo mkdir -p /root/.cloudflared
 #   sudo cp "$USER_CERT_PATH" "$ROOT_CERT_PATH"
 #   sudo chmod 600 "$ROOT_CERT_PATH"
@@ -61,14 +61,13 @@
 # # ========== INSTALL DEPENDENCIES ==========
 # sudo dnf install -y awscli jq curl policycoreutils || true
 
-
 # # ========== LOAD CLUSTER INFO ==========
 # if [[ ! -f /etc/minikube/env-info.json ]]; then
 #   echo "Missing /etc/minikube/env-info.json. Run global-setup.sh first."
 #   exit 1
 # fi
 # CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
-# echo "Using Minikube IP: ${CLUSTER_IP}"
+# echo "🌐 Using Minikube IP: ${CLUSTER_IP}"
 
 # # ========== FETCH TUNNEL CREDS ==========
 # sudo mkdir -p "$TUNNEL_DIR"
@@ -140,16 +139,19 @@ INGRESS_FILE="/opt/minikube/hello-ingress.yml"
 
 echo "🚀 Setting up Cloudflare Tunnel for ${HOSTNAME}..."
 sudo mkdir -p ~/.cloudflared "$CONFIG_DIR"
-sudo cp "$TUNNEL_JSON" "$CRED_FILE"
+
+aws s3 cp "$TUNNEL_JSON" "$CRED_FILE"
+
 TUNNEL_ID=$(jq -r .TunnelID "$CRED_FILE")
 CLUSTER_IP=$(jq -r .cluster_ip /etc/minikube/env-info.json)
+
 
 sudo bash -c "cat > ${CONFIG_FILE} <<EOF
 tunnel: ${TUNNEL_ID}
 credentials-file: ${CRED_FILE}
 ingress:
   - hostname: ${HOSTNAME}
-    service: http://${CLUSTER_IP}:80
+    service: http://${CLUSTER_IP}:81
     originRequest:
       noTLSVerify: true
   - service: http_status:404
@@ -175,4 +177,4 @@ sudo systemctl enable "${SERVICE_NAME}" --now
 sleep 3
 cloudflared tunnel route dns "$TUNNEL_ID" "$HOSTNAME" || true
 
-echo "✅ Hello app available at: https://${HOSTNAME}"
+echo "✅ hello app available at: https://${HOSTNAME}"
