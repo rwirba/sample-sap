@@ -1,16 +1,20 @@
-namespace: kubernetes-dashboard
-domain: ryandemolab.app
-hostname: dashboard.ryandemolab.app
+fullnameOverride: "kubernetes-dashboard"
 
 image:
   repository: kubernetesui/dashboard
   tag: v2.7.0
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
 
 service:
-  port: 80
-  targetPort: 443
+  type: ClusterIP
+  port: 443
+  targetPort: 8443
+
+resources: {}
 
 ingress:
   enabled: true
-  className: nginx
-  annotations: {}
+  className: "nginx"
+  host: "dashboard.ryandemolab.app"

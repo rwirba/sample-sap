@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "minikube-dashboard.fullname" . }}
+  labels:
+    app: kubernetes-dashboard
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: kubernetes-dashboard
+  template:
+    metadata:
+      labels:
+        app: kubernetes-dashboard
+    spec:
+      serviceAccountName: admin-user
+      containers:
+        - name: kubernetes-dashboard
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          args:
+            - --namespace=kubernetes-dashboard
+            - --enable-skip-login
+            - --disable-settings-authorizer
+            - --auto-generate-certificates
+          livenessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 10
+            timeoutSeconds: 5

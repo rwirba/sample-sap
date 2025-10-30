@@ -50,6 +50,31 @@ sudo chmod 600 "$TOKEN_FILE"
 echo "⬆️ Uploading token to S3..."
 aws s3 cp "$TOKEN_FILE" "$S3_TOKEN_PATH" --quiet || echo "⚠️ Skipped S3 upload (check AWS CLI credentials)."
 
+# --- Ensure admin-user ServiceAccount + binding ---
+echo "🔐 Ensuring admin-user RBAC configuration..."
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+EOF
+
+
 # --- Summary ---
 echo "✅ Dashboard deployed successfully!"
 echo "🔑 Token saved to: $TOKEN_FILE"
