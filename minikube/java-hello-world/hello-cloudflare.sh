@@ -24,21 +24,21 @@ fi
 TUNNEL_ID=$(jq -r .TunnelID "${CRED_FILE}")
 
 # --- Ensure service is NodePort ---
-if ! kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" &>/dev/null; then
-  echo "❌ Service java-${APP_NAME}-demo not found in namespace ${NAMESPACE}"
+if ! kubectl get svc java-${APP_NAME} -n "${NAMESPACE}" &>/dev/null; then
+  echo "❌ Service java-${APP_NAME} not found in namespace ${NAMESPACE}"
   exit 1
 fi
 
-SERVICE_TYPE=$(kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" -o jsonpath='{.spec.type}')
+SERVICE_TYPE=$(kubectl get svc java-${APP_NAME} -n "${NAMESPACE}" -o jsonpath='{.spec.type}')
 if [[ "${SERVICE_TYPE}" != "NodePort" ]]; then
-  echo "🔧 Patching service java-${APP_NAME}-demo to NodePort..."
-  kubectl patch svc java-${APP_NAME}-demo -n "${NAMESPACE}" -p '{"spec": {"type": "NodePort"}}' >/dev/null
+  echo "🔧 Patching service java-${APP_NAME} to NodePort..."
+  kubectl patch svc java-${APP_NAME} -n "${NAMESPACE}" -p '{"spec": {"type": "NodePort"}}' >/dev/null
   sleep 4
 fi
 
 # --- Extract Minikube IP and NodePort ---
 MINIKUBE_IP=$(minikube ip)
-NODE_PORT=$(kubectl get svc java-${APP_NAME}-demo -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].nodePort}')
+NODE_PORT=$(kubectl get svc java-${APP_NAME} -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].nodePort}')
 
 if [[ -z "$NODE_PORT" ]]; then
   echo "❌ Failed to obtain NodePort from service."
