@@ -23,9 +23,34 @@ fi
 
 TUNNEL_ID=$(jq -r .TunnelID "${CRED_FILE}")
 
+# --- Ensure service exists ---
+if ! kubectl get svc java-ads-demo -n "${NAMESPACE}" >/dev/null 2>&1; then
+  echo "❌ Service java-ads-demo not found in namespace ${NAMESPACE}."
+  exit 1
+fi
+
+# --- Check and patch service type if needed ---
+SERVICE_TYPE=$(kubectl get svc java-ads-demo -n "${NAMESPACE}" -o jsonpath='{.spec.type}')
+if [[ "${SERVICE_TYPE}" != "NodePort" ]]; then
+  echo "🔧 Converting service java-ads-demo from ${SERVICE_TYPE} to NodePort..."
+  kubectl patch svc java-ads-demo -n "${NAMESPACE}" -p '{"spec": {"type": "NodePort"}}' >/dev/null
+  sleep 3
+fi
+
 # --- Get Minikube IP and NodePort ---
 MINIKUBE_IP=$(minikube ip)
-NODE_PORT=$(kubectl get svc java-ads-demo -n ${NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
+NODE_PORT=""
+for i in {1..5}; do
+  NODE_PORT=$(kubectl get svc java-ads-demo -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)
+  if [[ -n "${NODE_PORT}" ]]; then break; fi
+  echo "⏳ Waiting for NodePort to be assigned..."
+  sleep 3
+done
+
+if [[ -z "${NODE_PORT}" ]]; then
+  echo "❌ Failed to detect NodePort for java-ads-demo service. Exiting."
+  exit 1
+fi
 
 echo "🌐 Minikube IP: ${MINIKUBE_IP}"
 echo "🔢 NodePort: ${NODE_PORT}"
@@ -59,15 +84,15 @@ Environment=HOME=/home/ec2-user
 WantedBy=multi-user.target
 EOF
 
-# --- Restart service ---
+# --- Restart Cloudflared ---
 sudo systemctl daemon-reload
-sudo systemctl enable ${SERVICE_NAME} --now
-sudo systemctl restart ${SERVICE_NAME}
+sudo systemctl enable "${SERVICE_NAME}" --now
+sudo systemctl restart "${SERVICE_NAME}"
 
 sleep 5
-sudo systemctl status ${SERVICE_NAME} --no-pager
+sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
 # --- Verify tunnel health ---
-cloudflared tunnel info ${APP_NAME}-tunnel || true
+cloudflared tunnel info "${APP_NAME}-tunnel" || true
 
 echo "✅ ${APP_NAME} app available at: https://${HOSTNAME}"
