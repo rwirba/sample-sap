@@ -35,3 +35,16 @@ Now create a simple metadata file that your automation scripts will read:
 
 EOF
 http://98.84.141.61:33871/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/
+
+
+
+kubectl -n demo get pods -o wide
+kubectl -n demo get svc java-ads-demo -o wide
+kubectl -n demo describe svc java-ads-demo | egrep 'Type:|Port:|TargetPort|NodePort|Endpoints'
+kubectl -n demo get endpoints java-ads-demo
+
+
+
+MINIKUBE_IP=$(minikube ip)
+NODE_PORT=$(kubectl -n demo get svc java-ads-demo -o jsonpath='{.spec.ports[0].nodePort}')
+curl -sv "http://${MINIKUBE_IP}:${NODE_PORT}"
