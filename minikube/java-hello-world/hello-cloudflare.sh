@@ -50,6 +50,10 @@ echo "🔢 NodePort: ${NODE_PORT}"
 
 # --- Write Cloudflare config ---
 sudo mkdir -p "${CONFIG_DIR}"
+
+# Dynamically detect target port inside the Kubernetes service
+TARGET_PORT=$(kubectl get svc java-${APP_NAME}-world -n "${NAMESPACE}" -o jsonpath='{.spec.ports[0].targetPort}')
+
 sudo bash -c "cat > ${CONFIG_FILE}" <<EOF
 tunnel: ${TUNNEL_ID}
 credentials-file: ${CRED_FILE}
@@ -57,9 +61,12 @@ ingress:
   - hostname: ${HOSTNAME}
     service: http://${MINIKUBE_IP}:${NODE_PORT}
     originRequest:
+      httpHostHeader: java-${APP_NAME}-world
       noTLSVerify: true
   - service: http_status:404
 EOF
+
+
 
 # --- Create systemd unit ---
 sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME}" <<EOF
