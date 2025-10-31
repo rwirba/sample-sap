@@ -63,7 +63,7 @@
 
 # STEP 7 – Run the container with all parameters
 - name: Run SAP HANA Express container
-  community.general.podman_container:
+  containers.podman.podman_container:
     name: "{{ hxe_container_name }}"
     image: "{{ hxe_full_image }}"
     hostname: "{{ hxe_hostname }}"
