@@ -48,6 +48,7 @@ chmod 600 "${HXE_PASSWORD_FILE}"
 
 # ---- FIX HANA DIRECTORY OWNERSHIP (critical for /hana/mounts access) ----
 echo "[INFO] Setting ownership for SAP HANA data directory..."
+sudo mkdir -p /data/hxe
 chown -R 12000:79 "${HXE_DATA_DIR}"
 chmod -R 775 "${HXE_DATA_DIR}"
 
