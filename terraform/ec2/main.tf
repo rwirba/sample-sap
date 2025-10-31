@@ -49,3 +49,4 @@ resource "aws_instance" "rhel_demo1" {
 #     Name = "RHEL9-Demo2"
 #   }
 # }
+#
