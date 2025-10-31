@@ -50,9 +50,11 @@
 - name: Build SAP HANA Express image
   containers.podman.podman_image:
     name: "{{ hxe_full_image }}"
+    path: "{{ playbook_dir }}"  
     build:
-      path: "{{ playbook_dir }}"
+      # build sub-parameters would go here, but none are needed for a simple build
     push: false
+
 
 # # STEP 6 – Push to Docker Hub (if token provided)
 # - name: Push image to Docker Hub
