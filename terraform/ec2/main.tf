@@ -15,7 +15,7 @@ data "aws_security_group" "ryan_sg" {
 }
 
 resource "aws_instance" "rhel_demo1" {
-  ami                    = "ami-0dfc569a8686b9320"
+  ami                    = "ami-0dfc569a8686b9320"  # RHEL 9 AMI
   instance_type          = "t2.medium"
   key_name               = "ryan-key"
   iam_instance_profile   = "ryan_dev_lab_instance_role"
@@ -25,6 +25,9 @@ resource "aws_instance" "rhel_demo1" {
               #!/bin/bash
               dnf -y update
               dnf -y install git
+              dnf -y install ansible
+              ansible-galaxy collection install community.general
+              ansible-galaxy collection install ansible.posix
               EOF
 
   tags = {
