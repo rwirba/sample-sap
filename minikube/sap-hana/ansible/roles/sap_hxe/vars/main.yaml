@@ -29,9 +29,7 @@ container_sysctls:
   kernel.shmall: "8388608"
 
 container_ulimits:
-  - name: nofile
-    soft: 1048576
-    hard: 1048576
+  - "nofile=1048576:1048576"
 
 published_ports:
   - "49013:49013"
