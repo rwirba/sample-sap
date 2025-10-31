@@ -55,3 +55,46 @@ resource "aws_instance" "rhel_demo1" {
 #   }
 # }
 #
+resource "aws_instance" "rhel_demo1" {
+  ami                    = "ami-0dfc569a8686b9320"  # RHEL 9 AMI
+  instance_type          = "t2.medium"
+  key_name               = "ryan-key"
+  iam_instance_profile   = "ryan_dev_lab_instance_role"
+  vpc_security_group_ids = [data.aws_security_group.ryan_sg.id]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -eux
+              dnf -y update
+              dnf -y install git python3-pip podman podman-docker buildah skopeo runc
+
+              mkdir -p /etc/containers
+              cat <<EOC > /etc/containers/containers.conf
+              [engine]
+              runtime = "runc"
+              default_runtime = "runc"
+              EOC
+
+              sudo -u ec2-user mkdir -p /home/ec2-user/.config/containers
+              cat <<EOC > /home/ec2-user/.config/containers/containers.conf
+              [engine]
+              runtime = "runc"
+              default_runtime = "runc"
+              EOC
+              chown -R ec2-user:ec2-user /home/ec2-user/.config
+              podman system migrate || true
+              sudo -u ec2-user podman system migrate || true
+              dnf -y install python3-pip
+              pip3 install --upgrade pip
+              pip3 install ansible
+              /usr/local/bin/ansible-galaxy collection install community.general
+              /usr/local/bin/ansible-galaxy collection install ansible.posix
+              echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
+              chown ec2-user:ec2-user /home/ec2-user/.bashrc
+              podman info | grep -A2 "ociRuntime" >> /var/log/podman-runtime.log 2>&1 || true
+              EOF
+
+  tags = {
+    Name = "RHEL9-Demo1"
+  }
+}

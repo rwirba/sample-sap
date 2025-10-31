@@ -69,6 +69,7 @@
     name: "{{ hxe_container_name }}"
     image: "{{ hxe_full_image }}"
     hostname: "{{ hxe_hostname }}"
+    runtime: runc 
     state: started
     detach: true
     restart_policy: always
