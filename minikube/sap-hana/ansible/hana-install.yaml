@@ -1,0 +1,6 @@
+---
+- name: Deploy SAP HANA Express on RHEL9 with Podman
+  hosts: hxe_hosts
+  become: true
+  roles:
+    - sap_hxe

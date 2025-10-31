@@ -1,0 +1,51 @@
+# --- Podman registry settings ---
+dockerhub_username: "ryandevlab"
+hxe_image_name: "hanaexpressxsa"
+hxe_image_tag: "latest"
+hxe_full_image: "{{ dockerhub_username }}/{{ hxe_image_name }}:{{ hxe_image_tag }}"
+
+# --- SAP HANA settings ---
+hxe_hostname: "hxehost"
+hxe_container_name: "hxexsa1"
+hxe_data_dir: "/data/hxe"
+hxe_password_json_name: "password.json"
+
+hxe_passwords:
+  master_password: "HXEHana1"
+
+# --- Host sysctl configuration ---
+sysctl_params:
+  fs.file-max: 20000000
+  fs.aio-max-nr: 262144
+  vm.memory_failure_early_kill: 1
+  vm.max_map_count: 135217728
+  net.ipv4.ip_local_port_range: "40000 60999"
+
+# --- Container runtime config ---
+container_sysctls:
+  kernel.shmmax: "1073741824"
+  net.ipv4.ip_local_port_range: "60000 65535"
+  kernel.shmmni: "524288"
+  kernel.shmall: "8388608"
+
+container_ulimits:
+  - name: nofile
+    soft: 1048576
+    hard: 1048576
+
+published_ports:
+  - "49013:49013"
+  - "49015:49015"
+  - "49041-49045:49041-49045"
+  - "1138-1139:1128-1129"
+  - "59023-59024:59013-59014"
+  - "49030-49033:49030-49033"
+  - "51000-51060:51000-51060"
+  - "53075:53075"
+
+passwords_url: "file:///hana/mounts/{{ hxe_password_json_name }}"
+
+# --- Proxy configuration (optional) ---
+sap_proxy_host: ""
+sap_proxy_port: ""
+sap_no_proxy: "localhost,127.0.0.1,{{ hxe_hostname }},{{ hxe_hostname }}.localdomain"

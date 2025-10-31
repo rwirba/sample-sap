@@ -1,0 +1,83 @@
+---
+# STEP 1 – Ensure Podman & required tools are installed
+- name: Install Podman and required packages
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - podman-docker   # enables 'docker' alias if needed
+      - buildah
+      - skopeo
+    state: present
+    update_cache: true
+
+# STEP 2 – Apply sysctl kernel parameters
+- name: Apply SAP-recommended sysctl parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: "/etc/sysctl.conf"
+    state: present
+    reload: true
+  loop: "{{ sysctl_params | dict2items }}"
+
+# STEP 3 – Prepare directories and password file
+- name: Ensure HANA data directory exists
+  ansible.builtin.file:
+    path: "{{ hxe_data_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create password JSON
+  ansible.builtin.template:
+    src: "password.json.j2"
+    dest: "{{ hxe_data_dir }}/{{ hxe_password_json_name }}"
+    mode: "0600"
+
+- name: Set numeric ownership (SAP requirement)
+  ansible.builtin.command:
+    cmd: "chown 12000:79 {{ hxe_data_dir }}/{{ hxe_password_json_name }}"
+  changed_when: false
+
+# STEP 4 – Login to Docker Hub (optional)
+- name: Login to Docker Hub with Podman
+  community.general.podman_login:
+    registry: "docker.io"
+    username: "{{ dockerhub_username }}"
+    password: "{{ lookup('env','DOCKERHUB_TOKEN') }}"
+  when: lookup('env','DOCKERHUB_TOKEN') != ""
+
+# STEP 5 – Build the wrapper image using Podman
+- name: Build SAP HANA Express image
+  community.general.podman_image:
+    name: "{{ hxe_full_image }}"
+    build:
+      path: "{{ playbook_dir }}"
+    push: false
+
+# STEP 6 – Push to Docker Hub (if token provided)
+- name: Push image to Docker Hub
+  community.general.podman_image:
+    name: "{{ hxe_full_image }}"
+    push: true
+  when: lookup('env','DOCKERHUB_TOKEN') != ""
+
+# STEP 7 – Run the container with all parameters
+- name: Run SAP HANA Express container
+  community.general.podman_container:
+    name: "{{ hxe_container_name }}"
+    image: "{{ hxe_full_image }}"
+    hostname: "{{ hxe_hostname }}"
+    state: started
+    detach: true
+    restart_policy: always
+    publish: "{{ published_ports }}"
+    volume:
+      - "{{ hxe_data_dir }}:/hana/mounts"
+    sysctl: "{{ container_sysctls }}"
+    ulimit: "{{ container_ulimits }}"
+    command: >-
+      --agree-to-sap-license
+      --passwords-url {{ passwords_url }}
+      {% if sap_proxy_host %}--proxy-host {{ sap_proxy_host }}{% endif %}
+      {% if sap_proxy_port %}--proxy-port {{ sap_proxy_port }}{% endif %}
+      --no-proxy {{ sap_no_proxy }}
