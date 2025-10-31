@@ -20,8 +20,8 @@ sysctl_params:
   vm.memory_failure_early_kill: 1
   vm.max_map_count: 135217728
   net.ipv4.ip_local_port_range: "40000 60999"
-  kernel.shmmni: 524288
-  kernel.shmall: 8388608
+  # kernel.shmmni: 524288
+  # kernel.shmall: 8388608
 
 
 # --- Container runtime config ---
