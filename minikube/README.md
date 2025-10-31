@@ -10,6 +10,7 @@ This guide outlines the steps required to prepare a new domain for Kubernetes-ba
 sudo mkdir -p /opt/minikube
 sudo chown ec2-user:ec2-user /opt/minikube
 cd /opt/minikube
+sudo su - sapuser
 git clone https://github.com/rwirba/sample-sap.git
 cd sample-sap
 git checkout k8s-automation
