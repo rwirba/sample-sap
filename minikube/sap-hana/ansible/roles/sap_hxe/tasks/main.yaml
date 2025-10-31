@@ -69,7 +69,6 @@
     name: "{{ hxe_container_name }}"
     image: "{{ hxe_full_image }}"
     hostname: "{{ hxe_hostname }}"
-    runtime: runc 
     state: started
     detach: true
     restart_policy: always
@@ -78,10 +77,14 @@
       - "{{ hxe_data_dir }}:/hana/mounts"
     sysctl: "{{ container_sysctls }}"
     ulimit: "{{ container_ulimits }}"
+    cmd_args:
+      - "--runtime"
+      - "runc"                     # 👈 supported and forces runc
     command: >-
       --agree-to-sap-license
       --passwords-url {{ passwords_url }}
       {% if sap_proxy_host %}--proxy-host {{ sap_proxy_host }}{% endif %}
       {% if sap_proxy_port %}--proxy-port {{ sap_proxy_port }}{% endif %}
       --no-proxy {{ sap_no_proxy }}
+
 
