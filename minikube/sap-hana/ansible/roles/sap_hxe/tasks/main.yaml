@@ -77,9 +77,8 @@
       - "{{ hxe_data_dir }}:/hana/mounts"
     sysctl: "{{ container_sysctls }}"
     ulimit: "{{ container_ulimits }}"
-    cmd_args:
-      - "--runtime"
-      - "runc"                     # 👈 supported and forces runc
+    security_opt:
+      - "systempaths=unconfined"      # 👈 let SAP set kernel.shmmni
     command: >-
       --agree-to-sap-license
       --passwords-url {{ passwords_url }}

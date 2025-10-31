@@ -23,6 +23,8 @@ sysctl_params:
   # kernel.shmmni: 524288
   # kernel.shmall: 8388608
 
+security_opt:
+  - "systempaths=unconfined"
 
 # --- Container runtime config ---
 container_sysctls:
