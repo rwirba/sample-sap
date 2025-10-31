@@ -5,7 +5,10 @@ set -euo pipefail
 # SAP HANA Express setup on RHEL9 using Podman (runc runtime)
 # Author: Ryan DevLab
 # -------------------------------------------------------------------
-
+if [[ $EUID -ne 0 ]]; then
+  echo "[INFO] Re-running with sudo privileges..."
+  exec sudo bash "$0" "$@"
+fi
 # ---- CONFIGURATION ----
 HXE_CONTAINER_NAME="hxexsa1"
 HXE_IMAGE_NAME="ryandevlab/saphana:1.0.0"
@@ -67,13 +70,16 @@ sudo podman run -d \
   --sysctl kernel.shmmax=1073741824 \
   --sysctl net.ipv4.ip_local_port_range='60000 65535' \
   --security-opt systempaths=unconfined \
-  -p 39013:39013 -p 39015:39015 -p 39017:39017 \
-  -p 51000-51060:51000-51060 -p 53075:53075 \
+  -p 39013:39013 \
+  -p 39015:39015 \
+  -p 39017:39017 \
+  -p 51000-51060:51000-51060 \
+  -p 53075:53075 \
   "${HXE_IMAGE_NAME}" \
   --agree-to-sap-license \
   --passwords-url file:///hana/mounts/password.json \
-  --no-proxy localhost,127.0.0.1,"${HXE_HOSTNAME}"
-
+  --dont-check-system \
+  --dont-check-mount-points
 # ---- STATUS ----
 echo "[INFO] Waiting for container to initialize..."
 sleep 30
