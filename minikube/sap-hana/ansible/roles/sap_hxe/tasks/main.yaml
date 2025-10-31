@@ -55,10 +55,6 @@
       file: "{{ dockerfile_path }}"
     push: false
 
-
-
-
-
 # # STEP 6 – Push to Docker Hub (if token provided)
 # - name: Push image to Docker Hub
 #   community.general.podman_image:
