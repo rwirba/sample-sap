@@ -23,3 +23,12 @@ container_ulimits:
 
 passwords_url: "file:///hana/mounts/password.json"
 sap_no_proxy: "localhost,127.0.0.1,hxehost,hxehost.localdomain"
+
+# --- SAP HANA Express sysctl parameters ---
+sysctl_params:
+  fs.file-max: 20000000
+  fs.aio-max-nr: 262144
+  vm.memory_failure_early_kill: 1
+  vm.max_map_count: 135217728
+  net.ipv4.ip_local_port_range: "40000 60999"
+
