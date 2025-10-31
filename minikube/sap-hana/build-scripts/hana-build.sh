@@ -9,6 +9,7 @@ if [[ $EUID -ne 0 ]]; then
   echo "[INFO] Re-running with sudo privileges..."
   exec sudo bash "$0" "$@"
 fi
+
 # ---- CONFIGURATION ----
 HXE_CONTAINER_NAME="hxexsa1"
 HXE_IMAGE_NAME="ryandevlab/saphana:1.0.0"
@@ -18,50 +19,54 @@ HXE_HOSTNAME="hxehost"
 PASSWORD_VALUE="HXEHana1"
 DOCKERFILE_PATH="$(pwd)/Dockerfile"
 
-# ---- CHECK: Dockerfile exists ----
+# ---- VALIDATION ----
 if [[ ! -f "$DOCKERFILE_PATH" ]]; then
-  echo "[ERROR] Dockerfile not found at $DOCKERFILE_PATH"
+  echo "[❌ ERROR] Dockerfile not found at: $DOCKERFILE_PATH"
   exit 1
 fi
 
 # ---- APPLY HOST SYSCTL SETTINGS ----
 echo "[INFO] Applying SAP-recommended sysctl parameters..."
-sudo tee /etc/sysctl.d/99-sap-hana.conf >/dev/null <<EOF
+cat <<EOF | tee /etc/sysctl.d/99-sap-hana.conf >/dev/null
 fs.file-max=20000000
 fs.aio-max-nr=262144
 vm.memory_failure_early_kill=1
 vm.max_map_count=135217728
 net.ipv4.ip_local_port_range=40000 60999
 EOF
-sudo sysctl --system
+sysctl --system >/dev/null 2>&1 || true
 
 # ---- PREPARE PASSWORD FILE ----
-echo "[INFO] Preparing data directory and password JSON..."
-sudo mkdir -p "${HXE_DATA_DIR}"
-cat <<EOF | sudo tee "${HXE_PASSWORD_FILE}" >/dev/null
+echo "[INFO] Preparing password JSON..."
+mkdir -p "${HXE_DATA_DIR}"
+cat <<EOF > "${HXE_PASSWORD_FILE}"
 {
   "master_password": "${PASSWORD_VALUE}"
 }
 EOF
-sudo chmod 600 "${HXE_PASSWORD_FILE}"
-sudo chown 12000:79 "${HXE_PASSWORD_FILE}"
+chmod 600 "${HXE_PASSWORD_FILE}"
+
+# ---- FIX HANA DIRECTORY OWNERSHIP (critical for /hana/mounts access) ----
+echo "[INFO] Setting ownership for SAP HANA data directory..."
+chown -R 12000:79 "${HXE_DATA_DIR}"
+chmod -R 775 "${HXE_DATA_DIR}"
 
 # ---- BUILD WRAPPER IMAGE ----
-echo "[INFO] Building custom HANA Express image using Dockerfile: ${DOCKERFILE_PATH}"
-sudo podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker .
+echo "[INFO] Building SAP HANA Express image using ${DOCKERFILE_PATH} ..."
+podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker
 
 echo "[INFO] Image build complete:"
-sudo podman images | grep saphana || true
+podman images | grep saphana || true
 
-# ---- CLEAN UP OLD CONTAINER ----
-if sudo podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
+# ---- REMOVE OLD CONTAINER IF EXISTS ----
+if podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
-  sudo podman rm -f "${HXE_CONTAINER_NAME}"
+  podman rm -f "${HXE_CONTAINER_NAME}" || true
 fi
 
 # ---- RUN NEW CONTAINER ----
 echo "[INFO] Starting SAP HANA Express container..."
-sudo podman run -d \
+podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
   --restart=always \
@@ -80,16 +85,25 @@ sudo podman run -d \
   --passwords-url file:///hana/mounts/password.json \
   --dont-check-system \
   --dont-check-mount-points
-# ---- STATUS ----
-echo "[INFO] Waiting for container to initialize..."
-sleep 30
 
-sudo podman ps
+echo "[INFO] Waiting for SAP HANA to initialize (this may take 1–2 minutes)..."
+sleep 60
 
-echo
-echo "[✅ SUCCESS] SAP HANA Express is now running!"
+# ---- VALIDATE STATUS ----
+if podman ps --filter "name=${HXE_CONTAINER_NAME}" --filter "status=running" --format "{{.Names}}" | grep -q "${HXE_CONTAINER_NAME}"; then
+  echo "[✅ SUCCESS] SAP HANA Express is now running!"
+else
+  echo "[⚠️ WARNING] Container is not running. Checking logs..."
+  podman logs "${HXE_CONTAINER_NAME}" | tail -n 50
+  echo "[❌ ERROR] SAP HANA failed to start. Please review logs above."
+  exit 1
+fi
+
+# ---- DISPLAY ACCESS INFO ----
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
+echo
 echo "-------------------------------------------------------------"
+echo "SAP HANA Express successfully started!"
 echo "Web Cockpit:   http://${EC2_IP}:51000"
 echo "Database Port: ${EC2_IP}:39017"
 echo "-------------------------------------------------------------"
