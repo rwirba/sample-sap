@@ -38,13 +38,13 @@
     cmd: "chown 12000:79 {{ hxe_data_dir }}/{{ hxe_password_json_name }}"
   changed_when: false
 
-# STEP 4 – Login to Docker Hub (optional)
-- name: Login to Docker Hub with Podman
-  community.general.podman_login:
-    registry: "docker.io"
-    username: "{{ dockerhub_username }}"
-    password: "{{ lookup('env','DOCKERHUB_TOKEN') }}"
-  when: lookup('env','DOCKERHUB_TOKEN') != ""
+# # STEP 4 – Login to Docker Hub (optional)
+# - name: Login to Docker Hub with Podman
+#   community.general.podman_login:
+#     registry: "docker.io"
+#     username: "{{ dockerhub_username }}"
+#     password: "{{ lookup('env','DOCKERHUB_TOKEN') }}"
+#   when: lookup('env','DOCKERHUB_TOKEN') != ""
 
 # STEP 5 – Build the wrapper image using Podman
 - name: Build SAP HANA Express image
@@ -54,12 +54,12 @@
       path: "{{ playbook_dir }}"
     push: false
 
-# STEP 6 – Push to Docker Hub (if token provided)
-- name: Push image to Docker Hub
-  community.general.podman_image:
-    name: "{{ hxe_full_image }}"
-    push: true
-  when: lookup('env','DOCKERHUB_TOKEN') != ""
+# # STEP 6 – Push to Docker Hub (if token provided)
+# - name: Push image to Docker Hub
+#   community.general.podman_image:
+#     name: "{{ hxe_full_image }}"
+#     push: true
+#   when: lookup('env','DOCKERHUB_TOKEN') != ""
 
 # STEP 7 – Run the container with all parameters
 - name: Run SAP HANA Express container
