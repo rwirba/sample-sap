@@ -7,6 +7,11 @@ hxe_container_name: hxexsa1
 hxe_hostname: hxehost
 hxe_data_dir: /data/hxe
 hxe_password_json_name: password.json
+hxe_passwords:
+  master: "HXEHana1"  # Must meet SAP complexity rules
+
+# URL used in --passwords-url
+passwords_url: "file:///hana/mounts/password.json"
 
 published_ports:
   - "39013:39013"
@@ -32,10 +37,5 @@ sysctl_params:
   vm.max_map_count: 135217728
   net.ipv4.ip_local_port_range: "40000 60999"
 
-hxe_passwords:
-  master: "HXEHana1"  # Must meet SAP complexity rules
-
-# URL used in --passwords-url
-passwords_url: "file:///hana/mounts/password.json"
 
 
