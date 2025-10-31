@@ -78,12 +78,11 @@
     sysctl: "{{ container_sysctls }}"
     ulimit: "{{ container_ulimits }}"
     security_opt:
-      - "systempaths=unconfined"      # 👈 let SAP set kernel.shmmni
+      - "systempaths=unconfined"
     command: >-
       --agree-to-sap-license
       --passwords-url {{ passwords_url }}
-      {% if sap_proxy_host %}--proxy-host {{ sap_proxy_host }}{% endif %}
-      {% if sap_proxy_port %}--proxy-port {{ sap_proxy_port }}{% endif %}
       --no-proxy {{ sap_no_proxy }}
+
 
 
