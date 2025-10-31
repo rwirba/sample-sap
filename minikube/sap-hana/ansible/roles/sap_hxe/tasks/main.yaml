@@ -48,7 +48,7 @@
 
 # STEP 5 – Build the wrapper image using Podman
 - name: Build SAP HANA Express image
-  community.general.podman_image:
+  containers.podman.podman_image:
     name: "{{ hxe_full_image }}"
     build:
       path: "{{ playbook_dir }}"
