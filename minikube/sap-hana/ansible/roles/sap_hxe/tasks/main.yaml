@@ -51,9 +51,6 @@
   containers.podman.podman_image:
     name: "{{ hxe_full_image }}"
     path: "{{ playbook_dir }}"
-    build:
-      buildargs:
-        HXE_BASE_IMAGE: "docker.io/saplabs/hanaexpress:latest"
     push: false
 
 
