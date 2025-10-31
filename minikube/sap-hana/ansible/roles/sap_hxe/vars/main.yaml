@@ -32,3 +32,10 @@ sysctl_params:
   vm.max_map_count: 135217728
   net.ipv4.ip_local_port_range: "40000 60999"
 
+hxe_passwords:
+  master: "HXEHana1"  # Must meet SAP complexity rules
+
+# URL used in --passwords-url
+passwords_url: "file:///hana/mounts/password.json"
+
+
