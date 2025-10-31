@@ -2,7 +2,7 @@ dockerhub_username: ryandevlab
 hxe_image_name: saphana
 hxe_image_tag: 1.0.0
 hxe_full_image: "{{ dockerhub_username }}/{{ hxe_image_name }}:{{ hxe_image_tag }}"
-dockerfile_path: "{{ playbook_dir }}/../Dockerfile"
+dockerfile_path: "{{ playbook_dir }}/Dockerfile"
 
 hxe_container_name: hxexsa1
 hxe_hostname: hxehost
