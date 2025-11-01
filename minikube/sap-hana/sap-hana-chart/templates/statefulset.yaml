@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: {{ include "sap-hana.name" . }}
   labels:
-    {{- include "sap-hana.name" . }}
+    app: {{ include "sap-hana.name" . }}
 spec:
   serviceName: {{ include "sap-hana.name" . }}
   replicas: 1
