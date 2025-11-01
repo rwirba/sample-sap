@@ -6,7 +6,7 @@ set -euo pipefail
 # Saves: vault-k8s-info.txt (contains HOST, CA, JWT)
 # -------------------------------------------------------------------
 
-NAMESPACE="default"
+NAMESPACE="vault"
 SA_SECRET="vault-auth-token"
 OUTPUT_FILE="/opt/vault-k8s-info.txt"
 
