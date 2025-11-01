@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sap-hana.name" . }}
+  labels:
+    {{- include "sap-hana.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: db
+      port: {{ .Values.service.ports.db }}
+      targetPort: {{ .Values.service.ports.db }}
+      nodePort: {{ .Values.service.nodePorts.db }}
+    - name: cockpit
+      port: {{ .Values.service.ports.cockpit }}
+      targetPort: {{ .Values.service.ports.cockpit }}
+      nodePort: {{ .Values.service.nodePorts.cockpit }}
+  selector:
+    app: {{ include "sap-hana.name" . }}

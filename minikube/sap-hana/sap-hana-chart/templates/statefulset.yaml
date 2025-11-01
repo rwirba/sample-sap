@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sap-hana.name" . }}
+  labels:
+    {{- include "sap-hana.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "sap-hana.name" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "sap-hana.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "sap-hana.name" . }}
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: sap-hana
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.ports.db }}
+            - containerPort: {{ .Values.service.ports.cockpit }}
+          args:
+            [
+              "--agree-to-sap-license",
+              "--passwords-url", "file:///hana/mounts/password.json",
+              "--dont-check-system",
+              "--dont-check-mount-points"
+            ]
+          securityContext:
+            privileged: true
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+          volumeMounts:
+            - name: hana-storage
+              mountPath: /hana/mounts
+          livenessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "{{ .Values.hana.healthcheckCommand }}"]
+            initialDelaySeconds: 180
+            periodSeconds: 60
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: hana-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

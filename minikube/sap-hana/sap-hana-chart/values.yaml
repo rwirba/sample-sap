@@ -1,0 +1,35 @@
+image:
+  repository: ryandevlab/sap-hana
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  ports:
+    db: 39017
+    cockpit: 51000
+  nodePorts:
+    db: 30917
+    cockpit: 31000
+
+resources:
+  requests:
+    memory: 16Gi
+    cpu: 4
+  limits:
+    memory: 24Gi
+    cpu: 8
+
+persistence:
+  size: 50Gi
+  path: /data/hana
+
+securityContext:
+  fsGroup: 79
+  runAsUser: 12000
+  runAsGroup: 79
+
+hana:
+  hostname: hana-host
+  password: HXEHana1
+  healthcheckCommand: "pgrep -f hdbnameserver >/dev/null || exit 1"
