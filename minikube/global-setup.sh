@@ -276,14 +276,17 @@ kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
 
 # ---- Kernel parameters recommended for HANA ----
-cat <<SYSCTL >/etc/sysctl.d/99-hana.conf
+echo "[INFO] Applying kernel parameters for SAP HANA..."
+sudo tee /etc/sysctl.d/99-hana.conf >/dev/null <<'EOF'
 fs.file-max=20000000
 fs.aio-max-nr=262144
 vm.memory_failure_early_kill=1
 vm.max_map_count=135217728
 net.ipv4.ip_local_port_range=40000 60999
-SYSCTL
-sysctl --system
+EOF
+
+sudo sysctl --system
+
 
 # ---- Create persistent storage path ----
 mkdir -p /data/hxe /opt/hana /opt/scripts
