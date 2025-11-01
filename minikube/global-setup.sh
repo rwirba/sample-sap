@@ -289,8 +289,8 @@ sudo sysctl --system
 
 
 # ---- Create persistent storage path ----
-mkdir -p /data/hxe /opt/hana /opt/scripts
-chmod -R 777 /data /opt
+sudo mkdir -p /data/hxe /opt/hana /opt/scripts
+sudo chmod -R 777 /data /opt
 # Wait for all nodes to be ready
 kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
