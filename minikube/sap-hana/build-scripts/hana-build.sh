@@ -39,9 +39,10 @@ sysctl --system
 
 # ---- PREPARE DATA DIRECTORY ----
 echo "[INFO] Ensuring correct ownership and permissions for ${HXE_DATA_DIR}..."
-sudo mkdir -p /data/hxe
-sudo chown -R 12000:79 /data/hxe
-sudo chmod -R 775 /data/hxe
+mkdir -p "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/log" "${HXE_DATA_DIR}/config"
+chown -R 12000:79 "${HXE_DATA_DIR}"
+chmod -R 775 "${HXE_DATA_DIR}"
+ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
 
 # ---- PREPARE PASSWORD FILE ----
 echo "[INFO] Preparing password JSON..."
@@ -64,6 +65,10 @@ if podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
+
+# ---- VERIFY FINAL PERMISSIONS ----
+echo "[INFO] Final permissions before run:"
+ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
 
 # ---- RUN NEW CONTAINER ----
 echo "[INFO] Starting SAP HANA Express container..."
