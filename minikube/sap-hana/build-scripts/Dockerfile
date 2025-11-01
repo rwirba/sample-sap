@@ -11,9 +11,9 @@ ENV HANA_LICENSE=accept \
     LC_ALL=en_US.UTF-8 \
     TZ=UTC
 
-RUN mkdir -p /hana/mounts && \
-    chown -R 12000:79 /hana && \
-    chmod -R 775 /hana
+RUN mkdir -p /hana/mounts \
+    && chown -R 12000:79 /hana/mounts \
+    && chmod -R 775 /hana/mounts
 
 EXPOSE 39013 39015 39017 51000 51060 53075
 
