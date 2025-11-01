@@ -3,17 +3,16 @@ kind: Service
 metadata:
   name: {{ include "sap-hana.name" . }}
   labels:
-    {{- include "sap-hana.name" .  }}
+    app: {{ include "sap-hana.name" . }}
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP
   ports:
-    - name: db
-      port: {{ .Values.service.ports.db }}
-      targetPort: {{ .Values.service.ports.db }}
-      nodePort: {{ .Values.service.nodePorts.db }}
-    - name: cockpit
-      port: {{ .Values.service.ports.cockpit }}
-      targetPort: {{ .Values.service.ports.cockpit }}
-      nodePort: {{ .Values.service.nodePorts.cockpit }}
+    - name: hana-tcp
+      port: 39017
+      targetPort: 39017
+    - name: hana-http
+      port: 51000
+      targetPort: 51000
   selector:
     app: {{ include "sap-hana.name" . }}
+
