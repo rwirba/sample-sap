@@ -10,7 +10,7 @@ NAMESPACE="hana"
 kubectl get ns $NAMESPACE &>/dev/null || kubectl create ns $NAMESPACE
 
 # Deploy or upgrade Helm release
-helm upgrade --install sap-hana ./sap-hana-chart \
+helm upgrade --install sap-hana ../sap-hana-chart \
   --namespace $NAMESPACE \
   --wait
 
