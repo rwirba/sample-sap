@@ -35,6 +35,7 @@ if podman ps -a --format '{{.Names}}' | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
+ulimit -n 1048576
 
 # Run container
 echo "[INFO] Starting SAP HANA container with persistent volume..."
@@ -44,7 +45,6 @@ podman run -d \
   --restart=always \
   --security-opt label=disable \
   -v "${HXE_DATA_DIR}:/hana/mounts" \
-  --ulimit nofile=1048576:1048576 \
   --sysctl kernel.shmmax=1073741824 \
   --sysctl net.ipv4.ip_local_port_range='60000 65535' \
   --security-opt systempaths=unconfined \
