@@ -82,7 +82,7 @@ sudo sysctl --system >/dev/null
 # -------------------------------------------------------------------
 # 6️⃣ Build image
 # -------------------------------------------------------------------
-echo "[INFO] Building SAP HANA Express wrapper image..."
+echo "[INFO] Building SAP HANA Express wrapper image...."
 podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker
 
 echo
