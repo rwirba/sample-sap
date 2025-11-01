@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------
-# SAP HANA Express setup on RHEL9 using Podman (runc runtime)
+# SAP HANA Express (Full Edition) setup on RHEL9 using Podman
 # Author: Ryan DevLab
 # -------------------------------------------------------------------
 
@@ -11,7 +11,6 @@ if [[ $EUID -ne 0 ]]; then
   exec sudo bash "$0" "$@"
 fi
 
-# ---- CONFIGURATION ----
 HXE_CONTAINER_NAME="hxexsa1"
 HXE_IMAGE_NAME="ryandevlab/saphana:1.0.0"
 HXE_DATA_DIR="/data/hxe"
@@ -20,7 +19,6 @@ HXE_HOSTNAME="hxehost"
 PASSWORD_VALUE="HXEHana1"
 DOCKERFILE_PATH="$(pwd)/Dockerfile"
 
-# ---- APPLY SYSCTL ----
 echo "[INFO] Applying SAP-recommended sysctl parameters..."
 cat <<EOF >/etc/sysctl.d/99-sap-hana.conf
 fs.file-max=20000000
@@ -31,26 +29,12 @@ net.ipv4.ip_local_port_range=40000 60999
 EOF
 sysctl --system
 
-# ---- PREPARE DIRECTORIES ----
 echo "[INFO] Creating persistent directories..."
-sudo mkdir -p \
-  "${HXE_DATA_DIR}/trace/hxehost" \
-  "${HXE_DATA_DIR}/log" \
-  "${HXE_DATA_DIR}/config"
-
-# ---- HARD-CODE PERMISSIONS ----
-echo "[INFO] Forcing ownership and access for SAP HANA directories..."
+sudo mkdir -p "${HXE_DATA_DIR}/trace/hxehost" "${HXE_DATA_DIR}/log" "${HXE_DATA_DIR}/config"
 sudo chmod -R 777 "${HXE_DATA_DIR}"
 sudo chown -R 12000:79 "${HXE_DATA_DIR}"
-
-# Defensive: explicitly fix known problem paths
-sudo mkdir -p "${HXE_DATA_DIR}/trace/hxehost"
-sudo chmod 777 "${HXE_DATA_DIR}/trace/hxehost"
-sudo chown -R 12000:79 "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
-
 sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
 
-# ---- PASSWORD FILE ----
 echo "[INFO] Preparing password JSON..."
 cat <<EOF > "${HXE_PASSWORD_FILE}"
 {
@@ -60,22 +44,16 @@ EOF
 sudo chmod 600 "${HXE_PASSWORD_FILE}"
 sudo chown 12000:79 "${HXE_PASSWORD_FILE}"
 
-# ---- BUILD WRAPPER IMAGE ----
-echo "[INFO] Building SAP HANA Express wrapper image..."
+echo "[INFO] Building SAP HANA Express (Full Edition) image..."
 podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker
 podman images | grep saphana || true
 
-# ---- CLEAN UP PREVIOUS ----
 if podman ps -a --format '{{.Names}}' | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
 
-echo "[INFO] Verified permissions before container run:"
-sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
-
-# ---- RUN CONTAINER ----
-echo "[INFO] Starting SAP HANA Express container..."
+echo "[INFO] Starting SAP HANA Express (Full Edition) container..."
 podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
@@ -88,7 +66,9 @@ podman run -d \
   -p 39013:39013 \
   -p 39015:39015 \
   -p 39017:39017 \
-  -p 51000-51060:51000-51060 \
+  -p 51000:51000 \
+  -p 51001:51001 \
+  -p 51060:51060 \
   -p 53075:53075 \
   "${HXE_IMAGE_NAME}" \
   --agree-to-sap-license \
@@ -98,11 +78,10 @@ podman run -d \
 
 echo
 echo "-------------------------------------------------------------"
-echo "[INFO] SAP HANA container starting — showing live logs..."
+echo "[INFO] SAP HANA container starting — live logs below"
 echo "-------------------------------------------------------------"
 echo
 
-# ---- LIVE LOGS UNTIL HEALTHY ----
 ATTEMPTS=0
 MAX_ATTEMPTS=60
 while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
@@ -120,11 +99,11 @@ else
   echo "[⚠️ WARNING] Container not marked healthy after ${MAX_ATTEMPTS} attempts."
 fi
 
-# ---- CONNECTION INFO ----
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
 echo
 echo "-------------------------------------------------------------"
-echo "[✅ DONE] SAP HANA Express startup complete."
-echo "Web Cockpit:   http://${EC2_IP}:51000"
+echo "[✅ DONE] SAP HANA Express (Full Edition) startup complete."
+echo "Web Cockpit:   https://${EC2_IP}:51001"
+echo "HTTP Cockpit:  http://${EC2_IP}:51000"
 echo "Database Port: ${EC2_IP}:39017"
 echo "-------------------------------------------------------------"
