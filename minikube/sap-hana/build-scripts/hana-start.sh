@@ -102,10 +102,10 @@ echo "[INFO] Health: ${STATUS}"
 # 7. Optional: Post-install for Cockpit & XS
 # -------------------------------------------------------------------
 echo "[INFO] Checking for XS Advanced / Cockpit installation..."
-if ! sudo podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
+if ! podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
   echo "[INFO] Installing XS Advanced and Cockpit (this can take 15–20 minutes)..."
   
-  sudo podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c '
+  podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c '
     set -eux
     cd /hana/shared/HXE/hdblcm
     ./hdblcm --action=add_components --components=xs --batch
@@ -120,7 +120,7 @@ fi
 # 8. Verify HANA & Cockpit are reachable
 # -------------------------------------------------------------------
 echo "[INFO] Checking cockpit ports..."
-sudo podman exec -it "${HXE_CONTAINER_NAME}" bash -c "ss -tuln | grep 5100 || true"
+podman exec -it "${HXE_CONTAINER_NAME}" bash -c "ss -tuln | grep 5100 || true"
 
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
 
