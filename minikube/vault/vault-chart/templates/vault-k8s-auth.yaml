@@ -1,14 +1,20 @@
-# vault-k8s-auth.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: vault-auth
-  namespace: default
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: vault-auth-token
+  namespace: {{ .Release.Namespace }}
   annotations:
     kubernetes.io/service-account.name: "vault-auth"
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 type: kubernetes.io/service-account-token
