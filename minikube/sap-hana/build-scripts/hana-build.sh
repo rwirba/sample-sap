@@ -2,11 +2,10 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------
-# SAP HANA Express setup and wrapper build
+# SAP HANA Express setup on RHEL9 using Podman (runc runtime)
 # Author: Ryan DevLab
 # -------------------------------------------------------------------
 
-# ---- REQUIRE SUDO ----
 if [[ $EUID -ne 0 ]]; then
   echo "[INFO] Re-running with sudo privileges..."
   exec sudo bash "$0" "$@"
@@ -15,49 +14,60 @@ fi
 # ---- CONFIGURATION ----
 HXE_CONTAINER_NAME="hxexsa1"
 HXE_IMAGE_NAME="ryandevlab/saphana:1.0.0"
-HXE_DATA_DIR="$(pwd)/data"
+HXE_DATA_DIR="/data/hxe"
 HXE_PASSWORD_FILE="${HXE_DATA_DIR}/password.json"
 HXE_HOSTNAME="hxehost"
 PASSWORD_VALUE="HXEHana1"
 DOCKERFILE_PATH="$(pwd)/Dockerfile"
 
-# ---- VALIDATE DOCKERFILE ----
+# ---- CHECK: Dockerfile exists ----
 if [[ ! -f "$DOCKERFILE_PATH" ]]; then
   echo "[ERROR] Dockerfile not found at $DOCKERFILE_PATH"
   exit 1
 fi
 
-# ---- BUILD IMAGE ----
-echo "[INFO] Building wrapper image from: ${DOCKERFILE_PATH}"
-sudo podman build \
-  -t "${HXE_IMAGE_NAME}" \
-  -f "${DOCKERFILE_PATH}" \
-  --format docker
+# ---- APPLY HOST SYSCTL SETTINGS ----
+echo "[INFO] Applying SAP-recommended sysctl parameters..."
+cat <<EOF >/etc/sysctl.d/99-sap-hana.conf
+fs.file-max=20000000
+fs.aio-max-nr=262144
+vm.memory_failure_early_kill=1
+vm.max_map_count=135217728
+net.ipv4.ip_local_port_range=40000 60999
+EOF
+sysctl --system
 
-# ---- VERIFY IMAGE ----
-echo "[INFO] Image build complete:"
-sudo podman images | grep saphana || true
+# ---- PREPARE DATA DIRECTORY ----
+echo "[INFO] Ensuring correct ownership and permissions for ${HXE_DATA_DIR}..."
+sudo mkdir -p /data/hxe
+sudo chown -R 12000:79 /data/hxe
+sudo chmod -R 775 /data/hxe
 
-# ---- CLEANUP OLD CONTAINER ----
-if sudo podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
-  echo "[INFO] Removing old container ${HXE_CONTAINER_NAME}..."
-  sudo podman rm -f "${HXE_CONTAINER_NAME}"
-fi
-
-# ---- PREPARE DATA ----
-echo "[INFO] Preparing HANA data directory..."
-sudo mkdir -p "${HXE_DATA_DIR}"
-cat <<EOF | sudo tee "${HXE_PASSWORD_FILE}" >/dev/null
+# ---- PREPARE PASSWORD FILE ----
+echo "[INFO] Preparing password JSON..."
+cat <<EOF > "${HXE_PASSWORD_FILE}"
 {
   "master_password": "${PASSWORD_VALUE}"
 }
 EOF
-sudo chmod 600 "${HXE_PASSWORD_FILE}"
-sudo chown 12000:79 "${HXE_PASSWORD_FILE}"
+chmod 600 "${HXE_PASSWORD_FILE}"
+chown 12000:79 "${HXE_PASSWORD_FILE}"
 
-# ---- RUN CONTAINER ----
+# ---- BUILD WRAPPER IMAGE ----
+echo "[INFO] Building SAP HANA Express wrapper image..."
+podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker .
+echo "[INFO] Image build complete:"
+podman images | grep saphana || true
+
+# ---- CLEAN UP OLD CONTAINER ----
+if podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
+  echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
+  podman rm -f "${HXE_CONTAINER_NAME}"
+fi
+
+# ---- RUN NEW CONTAINER ----
 echo "[INFO] Starting SAP HANA Express container..."
-sudo podman run -d \
+podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
   --restart=always \
@@ -77,15 +87,34 @@ sudo podman run -d \
   --dont-check-system \
   --dont-check-mount-points
 
-# ---- STATUS ----
-echo "[INFO] Waiting for container to initialize..."
-sleep 30
-sudo podman ps
+# ---- MONITOR LOGS UNTIL HEALTHY ----
+echo "[INFO] Waiting for container to initialize (this can take several minutes)..."
+sleep 20
 
-echo
-echo "[✅ SUCCESS] SAP HANA Express is now running!"
+ATTEMPTS=0
+MAX_ATTEMPTS=60
+
+while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
+  STATUS=$(podman inspect -f '{{.State.Healthcheck.Status}}' "${HXE_CONTAINER_NAME}" 2>/dev/null || echo "starting")
+  if [[ "$STATUS" == "healthy" ]]; then
+    echo "[✅ SUCCESS] SAP HANA container is healthy and running!"
+    break
+  fi
+  echo "[INFO] Container status: ${STATUS} (attempt $((ATTEMPTS+1))/${MAX_ATTEMPTS})"
+  sleep 10
+  ((ATTEMPTS++))
+done
+
+if [[ "$STATUS" != "healthy" ]]; then
+  echo "[WARN] Container not marked healthy yet — showing live logs..."
+  podman logs --tail=100 -f "${HXE_CONTAINER_NAME}" | grep -E "started|ready|error|FAIL|System"
+fi
+
+# ---- DISPLAY CONNECTION INFO ----
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
+echo
 echo "-------------------------------------------------------------"
+echo "[✅ SUCCESS] SAP HANA Express is now running!"
 echo "Web Cockpit:   http://${EC2_IP}:51000"
 echo "Database Port: ${EC2_IP}:39017"
 echo "-------------------------------------------------------------"
