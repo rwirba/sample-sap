@@ -4,6 +4,7 @@ set -euo pipefail
 # -------------------------------------------------------------------
 # SAP HANA Express Container Startup Script
 # Persistent volume + post-install automation
+# Author: Ryan DevLab
 # -------------------------------------------------------------------
 
 HXE_CONTAINER_NAME="hxexsa1"
@@ -13,15 +14,22 @@ HXE_PASSWORD_FILE="${HXE_DATA_DIR}/password.json"
 HXE_HOSTNAME="hxehost"
 PASSWORD_VALUE="HXEHana1"
 
-# Create persistent structure
+# -------------------------------------------------------------------
+# 1. Persistent directory setup (idempotent)
+# -------------------------------------------------------------------
+echo "[INFO] Creating persistent structure..."
 sudo mkdir -p "${HXE_DATA_DIR}/trace/hxehost" "${HXE_DATA_DIR}/log" "${HXE_DATA_DIR}/config"
-sudo chmod -R 777 "${HXE_DATA_DIR}"
-sudo chown -R 12000:79 "${HXE_DATA_DIR}"
 
-# Prepare password JSON (only if not already there)
+# Set ownership and permissions — tolerant of existing data
+sudo chown -R 12000:79 "${HXE_DATA_DIR}" || true
+sudo chmod -R 777 "${HXE_DATA_DIR}" || true
+
+# -------------------------------------------------------------------
+# 2. Password JSON (only if missing)
+# -------------------------------------------------------------------
 if [[ ! -f "${HXE_PASSWORD_FILE}" ]]; then
   echo "[INFO] Creating password file..."
-  cat <<EOF > "${HXE_PASSWORD_FILE}"
+  cat <<EOF | sudo tee "${HXE_PASSWORD_FILE}" >/dev/null
 {
   "master_password": "${PASSWORD_VALUE}"
 }
@@ -30,24 +38,45 @@ EOF
   sudo chown 12000:79 "${HXE_PASSWORD_FILE}"
 fi
 
-# Remove old container if exists
+# -------------------------------------------------------------------
+# 3. Apply high open file descriptor limits (root only)
+# -------------------------------------------------------------------
+if [[ $EUID -eq 0 ]]; then
+  echo "[INFO] Ensuring high open-file limits for sapuser..."
+  if ! grep -q "sapuser" /etc/security/limits.conf; then
+    sudo tee -a /etc/security/limits.conf >/dev/null <<'EOF'
+sapuser soft nofile 1048576
+sapuser hard nofile 1048576
+EOF
+  fi
+
+  # Enable pam_limits where applicable
+  sudo sed -i '/pam_limits.so/s/^#//g' /etc/pam.d/common-session* || true
+else
+  echo "[WARN] Running as non-root — unable to raise PAM limits globally."
+fi
+
+# -------------------------------------------------------------------
+# 4. Cleanup any existing container
+# -------------------------------------------------------------------
 if podman ps -a --format '{{.Names}}' | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
-# ---- RUN CONTAINER ----
-echo "[INFO] Setting host file descriptor limit for HANA..."
-ulimit -n 1048576
 
-echo "[INFO] Starting SAP HANA Express container..."
+# -------------------------------------------------------------------
+# 5. Start HANA container
+# -------------------------------------------------------------------
+echo "[INFO] Starting SAP HANA Express container with persistent volume..."
 podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
+  --restart=always \
   --security-opt label=disable \
+  --security-opt systempaths=unconfined \
   -v "${HXE_DATA_DIR}:/hana/mounts" \
   --sysctl kernel.shmmax=1073741824 \
   --sysctl net.ipv4.ip_local_port_range='60000 65535' \
-  --security-opt systempaths=unconfined \
   -p 39013:39013 \
   -p 39015:39015 \
   -p 39017:39017 \
@@ -59,23 +88,34 @@ podman run -d \
   --dont-check-system \
   --dont-check-mount-points
 
-
-echo "[INFO] Waiting for container to initialize..."
+# -------------------------------------------------------------------
+# 6. Wait and monitor logs
+# -------------------------------------------------------------------
+echo "[INFO] Waiting for HANA to initialize (2 minutes)..."
 sleep 120
 
-# Post-setup: Install XS Advanced + Cockpit if not present
-echo "[INFO] Checking if Cockpit is already installed..."
-if ! sudo podman exec -it --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "test -d /hana/shared/HXE/hdblcm || exit 1; cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
+echo "[INFO] Checking container health..."
+STATUS=$(podman inspect -f '{{.State.Healthcheck.Status}}' "${HXE_CONTAINER_NAME}" 2>/dev/null || echo "unknown")
+echo "[INFO] Health: ${STATUS}"
+
+# -------------------------------------------------------------------
+# 7. Optional: Post-install for Cockpit & XS
+# -------------------------------------------------------------------
+echo "[INFO] Checking for XS Advanced / Cockpit installation..."
+if ! sudo podman exec -it --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
   echo "[INFO] Installing XS Advanced and Cockpit..."
   sudo podman exec -it --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "
     cd /hana/shared/HXE/hdblcm && \
     ./hdblcm --action=add_components --components=xs --batch && \
     /usr/sap/HXE/HDB90/HDB restart"
 else
-  echo "[INFO] Cockpit already installed — skipping XS installation."
+  echo "[INFO] XS Advanced already installed — skipping."
 fi
 
-# Verify HANA and Cockpit are running
+# -------------------------------------------------------------------
+# 8. Verify HANA & Cockpit are reachable
+# -------------------------------------------------------------------
+echo "[INFO] Checking cockpit ports..."
 sudo podman exec -it "${HXE_CONTAINER_NAME}" bash -c "ss -tuln | grep 5100 || true"
 
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
