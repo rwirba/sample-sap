@@ -4,5 +4,4 @@ description: SAP HANA Express (Base Edition) StatefulSet Deployment
 type: application
 version: 0.1.0
 appVersion: "2.00.082"
-maintainers: Ryan DevLab
 
