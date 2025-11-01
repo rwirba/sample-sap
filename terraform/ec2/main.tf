@@ -21,16 +21,16 @@ data "aws_security_group" "ryan_sg" {
 #   iam_instance_profile   = "ryan_dev_lab_instance_role"
 #   vpc_security_group_ids = [data.aws_security_group.ryan_sg.id]
 
-#   user_data = <<-EOF
-#               #!/bin/bash
-#               dnf -y update
-#               dnf -y install git python3-pip
-#               pip3 install ansible
-#               echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
-#               chown ec2-user:ec2-user /home/ec2-user/.bashrc
-#               /usr/local/bin/ansible-galaxy collection install community.general
-#               /usr/local/bin/ansible-galaxy collection install ansible.posix
-#               EOF
+  # user_data = <<-EOF
+  #             #!/bin/bash
+  #             dnf -y update
+  #             dnf -y install git python3-pip
+  #             pip3 install ansible
+  #             echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
+  #             chown ec2-user:ec2-user /home/ec2-user/.bashrc
+  #             /usr/local/bin/ansible-galaxy collection install community.general
+  #             /usr/local/bin/ansible-galaxy collection install ansible.posix
+  #             EOF
 
 #   tags = {
 #     Name = "RHEL9-Demo1"
@@ -62,6 +62,18 @@ resource "aws_instance" "rhel_demo1" {
   key_name               = "ryan-key"
   iam_instance_profile   = "ryan_dev_lab_instance_role"
   vpc_security_group_ids = [data.aws_security_group.ryan_sg.id]
+
+    user_data = <<-EOF
+              #!/bin/bash
+              dnf -y update
+              dnf -y install git python3-pip
+              pip3 install ansible
+              echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
+              chown ec2-user:ec2-user /home/ec2-user/.bashrc
+              /usr/local/bin/ansible-galaxy collection install community.general
+              /usr/local/bin/ansible-galaxy collection install ansible.posix
+              EOF
+
 
   root_block_device {
     volume_size           = 100

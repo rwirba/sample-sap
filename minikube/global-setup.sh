@@ -54,15 +54,48 @@ if ! command -v helm &>/dev/null; then
   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
 fi
 
+# # ========= START MINIKUBE =========
+# if ! minikube status | grep -q "Running"; then
+#   echo "🚀 Starting Minikube (Podman driver)..."
+#   minikube start --driver=podman --force
+# else
+#   echo "✅ Minikube already running."
+# fi
+
+# kubectl wait --for=condition=Ready node --all --timeout=180s || true
+
 # ========= START MINIKUBE =========
+MIN_CPUS=4
+MIN_MEM=16384   # 16GB in MB
+
 if ! minikube status | grep -q "Running"; then
-  echo "🚀 Starting Minikube (Podman driver)..."
-  minikube start --driver=podman --force
+  echo "🚀 Starting Minikube (Podman driver) with recommended resources..."
+  minikube start --driver=podman --cpus=6 --memory=24576 --disk-size=80g --force
 else
-  echo "✅ Minikube already running."
+  echo "✅ Minikube already running. Checking resources..."
+  CPUS=$(minikube ssh -- "nproc" 2>/dev/null || echo 0)
+  MEM_MB=$(minikube ssh -- "free -m | awk '/Mem:/ {print \$2}'" 2>/dev/null || echo 0)
+
+  if (( CPUS < MIN_CPUS )) || (( MEM_MB < MIN_MEM )); then
+    echo "⚠️  Current Minikube node resources too low for SAP HANA:"
+    echo "   → CPUs: ${CPUS} (min ${MIN_CPUS})"
+    echo "   → Memory: ${MEM_MB}MB (min ${MIN_MEM}MB)"
+    echo "💡 Recreating Minikube with optimal settings..."
+    read -p "Recreate Minikube now? (y/n): " CONFIRM
+    if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+      minikube delete
+      minikube start --driver=podman --cpus=6 --memory=24576 --disk-size=80g --force
+    else
+      echo "⚠️  Continuing with limited resources..."
+    fi
+  else
+    echo "✅ Minikube meets HANA resource requirements (${CPUS} CPUs, ${MEM_MB}MB RAM)."
+  fi
 fi
 
+# Wait for all nodes to be ready
 kubectl wait --for=condition=Ready node --all --timeout=180s || true
+
 
 # ========= ENABLE INGRESS =========
 if ! kubectl get ns ingress-nginx &>/dev/null; then
