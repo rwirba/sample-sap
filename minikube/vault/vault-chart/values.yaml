@@ -1,0 +1,34 @@
+replicaCount: 1
+
+image:
+  repository: docker.io/ryandevlab/dev-vault
+  tag: "1.0.0"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8200
+  targetPort: 8200
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: vault.ryandemolab.app
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /vault/data
