@@ -42,7 +42,8 @@ podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
   --restart=always \
-  -v "${HXE_DATA_DIR}:/hana/mounts:z" \
+  --security-opt label=disable \
+  -v "${HXE_DATA_DIR}:/hana/mounts" \
   --ulimit nofile=1048576:1048576 \
   --sysctl kernel.shmmax=1073741824 \
   --sysctl net.ipv4.ip_local_port_range='60000 65535' \
@@ -50,15 +51,14 @@ podman run -d \
   -p 39013:39013 \
   -p 39015:39015 \
   -p 39017:39017 \
-  -p 51000:51000 \
-  -p 51001:51001 \
-  -p 51060:51060 \
+  -p 51000-51060:51000-51060 \
   -p 53075:53075 \
   "${HXE_IMAGE_NAME}" \
   --agree-to-sap-license \
   --passwords-url file:///hana/mounts/password.json \
   --dont-check-system \
   --dont-check-mount-points
+
 
 echo "[INFO] Waiting for container to initialize..."
 sleep 120
