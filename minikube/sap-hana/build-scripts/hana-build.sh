@@ -40,10 +40,9 @@ sysctl --system
 # ---- PREPARE DATA DIRECTORY ----
 echo "[INFO] Ensuring correct ownership and permissions for ${HXE_DATA_DIR}..."
 mkdir -p "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/log" "${HXE_DATA_DIR}/config"
-chown -R 12000:79 "${HXE_DATA_DIR}"
-# Allow container user full access to write nested dirs under /hana/mounts/trace
-chmod 777 "${HXE_DATA_DIR}/trace"
-chmod -R 775 "${HXE_DATA_DIR}"
+sudo chmod 1777 /data/hxe/trace
+sudo chown 12000:79 /data/hxe/trace
+sudo ls -ld /data/hxe/trace
 
 ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
 
