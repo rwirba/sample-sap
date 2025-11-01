@@ -20,13 +20,7 @@ HXE_HOSTNAME="hxehost"
 PASSWORD_VALUE="HXEHana1"
 DOCKERFILE_PATH="$(pwd)/Dockerfile"
 
-# ---- CHECK: Dockerfile exists ----
-if [[ ! -f "$DOCKERFILE_PATH" ]]; then
-  echo "[ERROR] Dockerfile not found at $DOCKERFILE_PATH"
-  exit 1
-fi
-
-# ---- APPLY HOST SYSCTL SETTINGS ----
+# ---- APPLY SYSCTL ----
 echo "[INFO] Applying SAP-recommended sysctl parameters..."
 cat <<EOF >/etc/sysctl.d/99-sap-hana.conf
 fs.file-max=20000000
@@ -37,47 +31,56 @@ net.ipv4.ip_local_port_range=40000 60999
 EOF
 sysctl --system
 
-# ---- PREPARE DATA DIRECTORY ----
-echo "[INFO] Fixing ownership and permissions for all HANA mount paths..."
-sudo mkdir -p "${HXE_DATA_DIR}"/{trace,log,config}
-sudo chown -R 12000:79 "${HXE_DATA_DIR}"
-sudo chmod -R 775 "${HXE_DATA_DIR}"
-sudo chmod 1777 "${HXE_DATA_DIR}/trace"
-sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
+# ---- PREPARE DIRECTORIES ----
+echo "[INFO] Creating persistent directories..."
+sudo mkdir -p \
+  "${HXE_DATA_DIR}/trace/hxehost" \
+  "${HXE_DATA_DIR}/log" \
+  "${HXE_DATA_DIR}/config"
 
-# ---- PREPARE PASSWORD FILE ----
+# ---- HARD-CODE PERMISSIONS ----
+echo "[INFO] Forcing ownership and access for SAP HANA directories..."
+sudo chmod -R 777 "${HXE_DATA_DIR}"
+sudo chown -R 12000:79 "${HXE_DATA_DIR}"
+
+# Defensive: explicitly fix known problem paths
+sudo mkdir -p "${HXE_DATA_DIR}/trace/hxehost"
+sudo chmod 777 "${HXE_DATA_DIR}/trace/hxehost"
+sudo chown -R 12000:79 "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
+
+sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
+
+# ---- PASSWORD FILE ----
 echo "[INFO] Preparing password JSON..."
 cat <<EOF > "${HXE_PASSWORD_FILE}"
 {
   "master_password": "${PASSWORD_VALUE}"
 }
 EOF
-chmod 600 "${HXE_PASSWORD_FILE}"
-chown 12000:79 "${HXE_PASSWORD_FILE}"
+sudo chmod 600 "${HXE_PASSWORD_FILE}"
+sudo chown 12000:79 "${HXE_PASSWORD_FILE}"
 
 # ---- BUILD WRAPPER IMAGE ----
 echo "[INFO] Building SAP HANA Express wrapper image..."
-podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker .
-echo "[INFO] Image build complete:"
+podman build -t "${HXE_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" --format docker
 podman images | grep saphana || true
 
-# ---- CLEAN UP OLD CONTAINER ----
-if podman ps -a --format "{{.Names}}" | grep -q "^${HXE_CONTAINER_NAME}$"; then
+# ---- CLEAN UP PREVIOUS ----
+if podman ps -a --format '{{.Names}}' | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
 
-# ---- VERIFY FINAL PERMISSIONS ----
-echo "[INFO] Final permissions before run:"
-ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
+echo "[INFO] Verified permissions before container run:"
+sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/trace/hxehost"
 
-# ---- RUN NEW CONTAINER ----
+# ---- RUN CONTAINER ----
 echo "[INFO] Starting SAP HANA Express container..."
 podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
   --restart=always \
-  -v "${HXE_DATA_DIR}:/hana/mounts" \
+  -v "${HXE_DATA_DIR}:/hana/mounts:Z" \
   --ulimit nofile=1048576:1048576 \
   --sysctl kernel.shmmax=1073741824 \
   --sysctl net.ipv4.ip_local_port_range='60000 65535' \
@@ -99,36 +102,25 @@ echo "[INFO] SAP HANA container starting — showing live logs..."
 echo "-------------------------------------------------------------"
 echo
 
-# ---- STREAM LOGS LIVE IN BACKGROUND ----
-podman logs -f "${HXE_CONTAINER_NAME}" &
-LOG_PID=$!
-
-# ---- CHECK HEALTH PERIODICALLY ----
+# ---- LIVE LOGS UNTIL HEALTHY ----
 ATTEMPTS=0
 MAX_ATTEMPTS=60
-STATUS="starting"
-
 while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
+  podman logs --since 10s "${HXE_CONTAINER_NAME}" || true
   STATUS=$(podman inspect -f '{{.State.Healthcheck.Status}}' "${HXE_CONTAINER_NAME}" 2>/dev/null || echo "starting")
-  if [[ "$STATUS" == "healthy" ]]; then
-    echo "[✅ SUCCESS] SAP HANA container is healthy and running!"
-    break
-  fi
   echo "[INFO] Status check #$((ATTEMPTS+1)) → ${STATUS}"
+  [[ "$STATUS" == "healthy" ]] && break
   sleep 15
   ((ATTEMPTS++))
 done
 
-# ---- STOP LOG STREAM IF STILL RUNNING ----
-if ps -p ${LOG_PID} >/dev/null 2>&1; then
-  kill ${LOG_PID} >/dev/null 2>&1 || true
-fi
-
-if [[ "$STATUS" != "healthy" ]]; then
+if [[ "$STATUS" == "healthy" ]]; then
+  echo "[✅ SUCCESS] SAP HANA container is healthy and running!"
+else
   echo "[⚠️ WARNING] Container not marked healthy after ${MAX_ATTEMPTS} attempts."
 fi
 
-# ---- DISPLAY CONNECTION INFO ----
+# ---- CONNECTION INFO ----
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
 echo
 echo "-------------------------------------------------------------"
