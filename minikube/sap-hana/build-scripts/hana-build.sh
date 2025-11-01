@@ -38,13 +38,12 @@ EOF
 sysctl --system
 
 # ---- PREPARE DATA DIRECTORY ----
-echo "[INFO] Ensuring correct ownership and permissions for ${HXE_DATA_DIR}..."
-mkdir -p "${HXE_DATA_DIR}/trace" "${HXE_DATA_DIR}/log" "${HXE_DATA_DIR}/config"
-sudo chmod 1777 /data/hxe/trace
-sudo chown 12000:79 /data/hxe/trace
-sudo ls -ld /data/hxe/trace
-
-ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
+echo "[INFO] Fixing ownership and permissions for all HANA mount paths..."
+sudo mkdir -p "${HXE_DATA_DIR}"/{trace,log,config}
+sudo chown -R 12000:79 "${HXE_DATA_DIR}"
+sudo chmod -R 775 "${HXE_DATA_DIR}"
+sudo chmod 1777 "${HXE_DATA_DIR}/trace"
+sudo ls -ld "${HXE_DATA_DIR}" "${HXE_DATA_DIR}/trace"
 
 # ---- PREPARE PASSWORD FILE ----
 echo "[INFO] Preparing password JSON..."
