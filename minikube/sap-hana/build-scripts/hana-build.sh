@@ -87,12 +87,20 @@ podman run -d \
   --dont-check-system \
   --dont-check-mount-points
 
-# ---- MONITOR LOGS UNTIL HEALTHY ----
-echo "[INFO] Waiting for container to initialize (this can take several minutes)..."
-sleep 20
+echo
+echo "-------------------------------------------------------------"
+echo "[INFO] SAP HANA container starting — showing live logs..."
+echo "-------------------------------------------------------------"
+echo
 
+# ---- STREAM LOGS LIVE IN BACKGROUND ----
+podman logs -f "${HXE_CONTAINER_NAME}" &
+LOG_PID=$!
+
+# ---- CHECK HEALTH PERIODICALLY ----
 ATTEMPTS=0
 MAX_ATTEMPTS=60
+STATUS="starting"
 
 while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
   STATUS=$(podman inspect -f '{{.State.Healthcheck.Status}}' "${HXE_CONTAINER_NAME}" 2>/dev/null || echo "starting")
@@ -100,21 +108,25 @@ while [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; do
     echo "[✅ SUCCESS] SAP HANA container is healthy and running!"
     break
   fi
-  echo "[INFO] Container status: ${STATUS} (attempt $((ATTEMPTS+1))/${MAX_ATTEMPTS})"
-  sleep 10
+  echo "[INFO] Status check #$((ATTEMPTS+1)) → ${STATUS}"
+  sleep 15
   ((ATTEMPTS++))
 done
 
+# ---- STOP LOG STREAM IF STILL RUNNING ----
+if ps -p ${LOG_PID} >/dev/null 2>&1; then
+  kill ${LOG_PID} >/dev/null 2>&1 || true
+fi
+
 if [[ "$STATUS" != "healthy" ]]; then
-  echo "[WARN] Container not marked healthy yet — showing live logs..."
-  podman logs --tail=100 -f "${HXE_CONTAINER_NAME}" | grep -E "started|ready|error|FAIL|System"
+  echo "[⚠️ WARNING] Container not marked healthy after ${MAX_ATTEMPTS} attempts."
 fi
 
 # ---- DISPLAY CONNECTION INFO ----
 EC2_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2_PUBLIC_IP>")
 echo
 echo "-------------------------------------------------------------"
-echo "[✅ SUCCESS] SAP HANA Express is now running!"
+echo "[✅ DONE] SAP HANA Express startup complete."
 echo "Web Cockpit:   http://${EC2_IP}:51000"
 echo "Database Port: ${EC2_IP}:39017"
 echo "-------------------------------------------------------------"
