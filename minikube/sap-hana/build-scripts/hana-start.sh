@@ -35,14 +35,14 @@ if podman ps -a --format '{{.Names}}' | grep -q "^${HXE_CONTAINER_NAME}$"; then
   echo "[INFO] Removing existing container ${HXE_CONTAINER_NAME}..."
   podman rm -f "${HXE_CONTAINER_NAME}"
 fi
+# ---- RUN CONTAINER ----
+echo "[INFO] Setting host file descriptor limit for HANA..."
 ulimit -n 1048576
 
-# Run container
-echo "[INFO] Starting SAP HANA container with persistent volume..."
+echo "[INFO] Starting SAP HANA Express container..."
 podman run -d \
   --name "${HXE_CONTAINER_NAME}" \
   -h "${HXE_HOSTNAME}" \
-  --restart=always \
   --security-opt label=disable \
   -v "${HXE_DATA_DIR}:/hana/mounts" \
   --sysctl kernel.shmmax=1073741824 \
