@@ -102,15 +102,19 @@ echo "[INFO] Health: ${STATUS}"
 # 7. Optional: Post-install for Cockpit & XS
 # -------------------------------------------------------------------
 echo "[INFO] Checking for XS Advanced / Cockpit installation..."
-if ! sudo podman exec -it --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
-  echo "[INFO] Installing XS Advanced and Cockpit..."
-  sudo podman exec -it --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "
-    cd /hana/shared/HXE/hdblcm && \
-    ./hdblcm --action=add_components --components=xs --batch && \
-    /usr/sap/HXE/HDB90/HDB restart"
+if ! sudo podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c "cd /hana/shared/HXE/hdblcm && ./hdblcm --list_components | grep -q 'xs'" >/dev/null 2>&1; then
+  echo "[INFO] Installing XS Advanced and Cockpit (this can take 15–20 minutes)..."
+  
+  sudo podman exec --user hxeadm "${HXE_CONTAINER_NAME}" bash -c '
+    set -eux
+    cd /hana/shared/HXE/hdblcm
+    ./hdblcm --action=add_components --components=xs --batch
+    /usr/sap/HXE/HDB90/HDB restart
+  '
 else
   echo "[INFO] XS Advanced already installed — skipping."
 fi
+
 
 # -------------------------------------------------------------------
 # 8. Verify HANA & Cockpit are reachable
