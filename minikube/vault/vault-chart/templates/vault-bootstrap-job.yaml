@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-k8s-bootstrap
+  namespace: {{ .Release.Namespace }}
+spec:
+  template:
+    spec:
+      serviceAccountName: vault-auth
+      restartPolicy: OnFailure
+      containers:
+        - name: vault-bootstrap
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command: ["/bin/bash", "/scripts/vault-bootstrap.sh"]
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault-demo:8200"
+          volumeMounts:
+            - name: vault-bootstrap-script
+              mountPath: /scripts
+            - name: vault-storage
+              mountPath: /vault/data
+      volumes:
+        - name: vault-bootstrap-script
+          configMap:
+            name: vault-k8s-bootstrap
+            defaultMode: 0755
+        - name: vault-storage
+          emptyDir: {}

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-k8s-bootstrap
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+data:
+  vault-bootstrap.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    echo "[INFO] Bootstrapping Vault Kubernetes Auth Method..."
+
+    export VAULT_ADDR="http://127.0.0.1:8200"
+    export VAULT_TOKEN=$(cat /vault/data/.root_token || echo "root")
+
+    # Wait until Vault API is up
+    until curl -s ${VAULT_ADDR}/v1/sys/health | grep -q 'initialized'; do
+      echo "[INFO] Waiting for Vault API..."
+      sleep 5
+    done
+
+    echo "[INFO] Enabling Kubernetes Auth..."
+    vault auth enable kubernetes || true
+
+    echo "[INFO] Configuring Kubernetes Auth with in-cluster credentials..."
+    K8S_HOST="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"
+    K8S_CA_CERT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)
+    SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
+    vault write auth/kubernetes/config \
+      token_reviewer_jwt="${SA_TOKEN}" \
+      kubernetes_host="${K8S_HOST}" \
+      kubernetes_ca_cert="${K8S_CA_CERT}" \
+      issuer="kubernetes.default.svc.cluster.local"
+
+    echo "[INFO] Creating Vault Role: hana-app"
+    vault write auth/kubernetes/role/hana-app \
+      bound_service_account_names=sap-hana \
+      bound_service_account_namespaces=demo \
+      policies=hana-policy \
+      ttl=1h
+
+    echo "[INFO] Vault Kubernetes Auth successfully configured ✅"
