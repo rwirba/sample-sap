@@ -22,3 +22,5 @@ kubectl wait --for=condition=Ready pod -l app=vault-demo -n "${NAMESPACE}" --tim
 # Show service details
 echo "✅ Vault deployed successfully!"
 kubectl get pods,svc,ingress -n "${NAMESPACE}"
+
+#
