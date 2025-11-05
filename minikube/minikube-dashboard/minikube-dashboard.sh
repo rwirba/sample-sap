@@ -24,6 +24,27 @@ echo "🚀 Setting up Cloudflare Tunnel for ${HOSTNAME}..."
 sudo mkdir -p "$CONFIG_DIR" "$LOCAL_CF_DIR"
 sudo chown -R ec2-user:ec2-user "$LOCAL_CF_DIR"
 
+# --- Auto-start Minikube if not running ---
+if ! minikube status | grep -q "host: Running"; then
+  echo "⚙️  Minikube not running — starting automatically..."
+  sudo systemctl start minikube-autostart.service || minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
+else
+  echo "✅ Minikube is already running."
+fi
+
+# --- Wait until Minikube node is ready ---
+echo "⏳ Waiting for Minikube node to become ready..."
+until kubectl get nodes 2>/dev/null | grep -q "Ready"; do
+  sleep 5
+  echo "  … still waiting for Minikube node"
+done
+echo "✅ Minikube node ready."
+
+# --- Ensure Kubernetes dashboard is running ---
+echo "⏳ Waiting for Kubernetes dashboard pod to be ready..."
+kubectl wait -n kubernetes-dashboard --for=condition=Ready pod -l k8s-app=kubernetes-dashboard --timeout=180s || true
+echo "✅ Dashboard pod ready (or timed out but continuing)."
+
 # --- Download tunnel credentials from S3 ---
 echo "📥 Downloading tunnel credentials from S3..."
 aws s3 cp "$S3_TUNNEL_JSON" "$CRED_FILE" --quiet || {
@@ -57,15 +78,19 @@ ingress:
   - service: http_status:404
 EOF"
 
-# --- Create systemd service ---
+# --- Create systemd service for tunnel ---
+echo "⚙️  Creating systemd service for ${APP_NAME} tunnel..."
 sudo bash -c "cat > /etc/systemd/system/${SERVICE_NAME} <<EOF
 [Unit]
 Description=Cloudflare Tunnel - ${APP_NAME}
-After=network.target
+After=network-online.target minikube-autostart.service
+Wants=network-online.target
 
 [Service]
+Type=simple
 ExecStart=/usr/local/bin/cloudflared --config ${CONFIG_FILE} tunnel run
 Restart=always
+RestartSec=5
 User=ec2-user
 Environment=HOME=/home/ec2-user
 
@@ -73,15 +98,14 @@ Environment=HOME=/home/ec2-user
 WantedBy=multi-user.target
 EOF"
 
-# --- Reload and start the service ---
 sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}" --now
 
 # --- Wait and show status ---
-sleep 3
+sleep 5
 sudo systemctl status "${SERVICE_NAME}" --no-pager || true
 
-# --- Register DNS route (if not already) ---
+# --- Register DNS route (if missing) ---
 if ! cloudflared tunnel route dns list 2>/dev/null | grep -q "${HOSTNAME}"; then
   echo "🌍 Registering DNS route for ${HOSTNAME}..."
   cloudflared tunnel route dns "${TUNNEL_ID}" "${HOSTNAME}" || true
@@ -90,4 +114,3 @@ else
 fi
 
 echo "✅ Dashboard available at: https://${HOSTNAME}"
-#
