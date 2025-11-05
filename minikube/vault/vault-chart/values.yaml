@@ -32,3 +32,4 @@ persistence:
   accessMode: ReadWriteOnce
   size: 1Gi
   mountPath: /vault/data
+  hostPath: /data/vault

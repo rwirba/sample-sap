@@ -37,6 +37,13 @@ spec:
             initialDelaySeconds: 40
             periodSeconds: 15
       volumes:
+        {{- if .Values.persistence.hostPath }}
+        - name: data-volume
+          hostPath:
+            path: {{ .Values.persistence.hostPath }}
+            type: DirectoryOrCreate
+        {{- else }}
         - name: data-volume
           persistentVolumeClaim:
             claimName: {{ include "vault-demo.name" . }}-pvc
+        {{- end }}

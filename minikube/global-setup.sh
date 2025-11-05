@@ -438,27 +438,49 @@ if ! command -v helm &>/dev/null; then
   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
 fi
 
-# ========= START MINIKUBE =========
-echo "🚀 Checking system capacity before starting Minikube..."
-
-HOST_CPUS=$(nproc)
-HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')  # MB
-
-REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
-REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
-
-echo "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM"
-echo "⚙️  Using Minikube config → CPUs=${REQ_CPUS}, Memory=${REQ_MEM}MB"
+# --- Persistent Minikube storage setup ---
+sudo mkdir -p /data/minikube
+sudo chown -R ec2-user:ec2-user /data/minikube
+echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
 
 if ! minikube status | grep -q "Running"; then
-  echo "🚀 Starting Minikube (Podman driver) with adjusted resources..."
-  minikube start --driver=podman --cpus="${REQ_CPUS}" --memory="${REQ_MEM}" --disk-size=50g --force
+  echo "🚀 Starting Minikube (Podman driver) with persistent storage..."
+  minikube start \
+    --driver=podman \
+    --mount=true \
+    --mount-string="/data/minikube:/var/lib/minikube" \
+    --cpus="${REQ_CPUS}" \
+    --memory="${REQ_MEM}" \
+    --disk-size=50g \
+    --force
 else
   echo "✅ Minikube already running."
 fi
 
-kubectl wait --for=condition=Ready node --all --timeout=180s || true
+# --- Create systemd autostart service for Minikube ---
+echo "⚙️  Configuring Minikube autostart systemd service..."
+sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
+[Unit]
+Description=Auto-start Minikube on EC2 boot
+After=network-online.target
+Wants=network-online.target
 
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
+RemainAfterExit=yes
+User=ec2-user
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable minikube-autostart.service
+echo "✅ Minikube will now auto-start on EC2 reboot."
+
+# Wait for Minikube nodes to be ready
+kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
 # ---- Kernel parameters for SAP HANA ----
 echo "[INFO] Applying kernel parameters for SAP HANA..."
