@@ -438,6 +438,17 @@ if ! command -v helm &>/dev/null; then
   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
 fi
 
+# Detect available host resources
+HOST_CPUS=$(nproc)
+HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')  # MB
+
+# Recommend: 4 CPUs, 16GB (16384MB) minimum; reserve ~2GB for OS
+REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
+REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
+
+echo "Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM"
+echo "Using Minikube config → CPUs=${REQ_CPUS}, Memory=${REQ_MEM}MB"
+
 # --- Persistent Minikube storage setup ---
 sudo mkdir -p /data/minikube
 sudo chown -R ec2-user:ec2-user /data/minikube
