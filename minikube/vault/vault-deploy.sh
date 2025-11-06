@@ -24,130 +24,108 @@
 # kubectl get pods,svc,ingress -n "${NAMESPACE}"
 
 # #
-
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="vault"
+APP_NAME="vault-demo"
 CHART_PATH="./vault-chart"
 NAMESPACE="demo"
-SERVICE_ACCOUNT="vault-auth"
-ROLE_NAME="hana-role"
-POLICY_NAME="hana-read"
-SECRET_PATH="kv/hana"
 
 echo "🚀 Deploying Vault to Minikube (namespace: ${NAMESPACE})..."
 
-# ---------------------------------------------------------------------
-# 1️⃣  Namespace setup
-# ---------------------------------------------------------------------
+# --- Ensure namespace exists ---
 if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+  echo "📦 Creating namespace ${NAMESPACE}..."
   kubectl create ns "${NAMESPACE}"
-  echo "✅ Created namespace ${NAMESPACE}"
 else
   echo "ℹ️  Namespace ${NAMESPACE} already exists"
 fi
 
-# ---------------------------------------------------------------------
-# 2️⃣  Deploy Vault Helm chart (with injector enabled)
-# ---------------------------------------------------------------------
-helm upgrade --install vault-demo "${CHART_PATH}" \
+# --- Deploy or upgrade Vault chart ---
+helm upgrade --install "${APP_NAME}" "${CHART_PATH}" \
   --namespace "${NAMESPACE}" \
-  --set injector.enabled=true \
-  --wait --atomic
+  --wait
 
-# ---------------------------------------------------------------------
-# 3️⃣  Wait until Vault pod is ready
-# ---------------------------------------------------------------------
 echo "⏳ Waiting for Vault pod to be ready..."
-kubectl wait --for=condition=Ready pod -l app=vault-demo -n "${NAMESPACE}" --timeout=300s
+kubectl wait --for=condition=Ready pod -l app=vault-demo -n "${NAMESPACE}" --timeout=180s
 
-VAULT_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=vault-demo -o jsonpath='{.items[0].metadata.name}')
+# --- Capture the Vault pod name ---
+VAULT_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=vault-demo -o jsonpath="{.items[0].metadata.name}")
 echo "✅ Vault pod detected: ${VAULT_POD}"
 
-# ---------------------------------------------------------------------
-# 4️⃣  Ensure service account exists
-# ---------------------------------------------------------------------
-if ! kubectl get sa "${SERVICE_ACCOUNT}" -n "${NAMESPACE}" &>/dev/null; then
-  kubectl create sa "${SERVICE_ACCOUNT}" -n "${NAMESPACE}"
-  echo "✅ Created service account ${SERVICE_ACCOUNT}"
+# --- Ensure the service account exists ---
+if ! kubectl get sa vault-auth -n "${NAMESPACE}" &>/dev/null; then
+  echo "🔑 Creating service account: vault-auth"
+  kubectl apply -f "${CHART_PATH}/templates/vault-k8s-auth.yaml" -n "${NAMESPACE}"
 else
-  echo "ℹ️  Service account ${SERVICE_ACCOUNT} already exists"
+  echo "ℹ️  Service account vault-auth already exists"
 fi
 
-# ---------------------------------------------------------------------
-# 5️⃣  Enable KV secrets engine (do NOT create secret)
-# ---------------------------------------------------------------------
-echo "🔐 Ensuring KV v2 secrets engine is enabled..."
+# --- Configure Vault internally ---
+echo "🔐 Configuring Vault inside pod..."
+
+# Enable KV v2 secrets engine (idempotent)
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c '
-vault secrets list | grep -q "kv/" || vault secrets enable -path=kv -version=2 kv
+export VAULT_ADDR="http://127.0.0.1:8200"
+if ! vault secrets list | grep -q "kv/"; then
+  echo "🔐 Enabling KV v2 secrets engine..."
+  vault secrets enable -path=kv -version=2 kv
+else
+  echo "ℹ️  KV v2 secrets engine already enabled"
+fi
 '
 
-echo "🗝️  Skipping secret creation — please create it manually:"
-echo "    vault kv put kv/hana master_password=<YOUR_PASSWORD>"
-echo
-
-# ---------------------------------------------------------------------
-# 6️⃣  Create/update read policy (idempotent)
-# ---------------------------------------------------------------------
-echo "📜 Creating or updating Vault policy..."
-cat <<'EOF' | kubectl exec -i -n "${NAMESPACE}" "${VAULT_POD}" -- tee /tmp/hana-read.hcl >/dev/null
-path "kv/data/hana" {
-  capabilities = ["read"]
-}
-EOF
-
+# Enable Kubernetes auth (idempotent)
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c '
-vault policy write '"${POLICY_NAME}"' /tmp/hana-read.hcl >/dev/null
+export VAULT_ADDR="http://127.0.0.1:8200"
+if ! vault auth list | grep -q "kubernetes/"; then
+  echo "🔐 Enabling Kubernetes Auth..."
+  vault auth enable kubernetes
+else
+  echo "ℹ️  Kubernetes Auth already enabled"
+fi
 '
 
-# ---------------------------------------------------------------------
-# 7️⃣  Enable & configure Kubernetes auth method (idempotent)
-# ---------------------------------------------------------------------
-echo "⚙️  Configuring Kubernetes auth method..."
+# Configure Kubernetes Auth method
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c '
-vault auth list | grep -q "kubernetes/" || vault auth enable kubernetes
+export VAULT_ADDR="http://127.0.0.1:8200"
+echo "⚙️  Configuring Kubernetes Auth..."
 vault write auth/kubernetes/config \
   token_reviewer_jwt=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) \
   kubernetes_host="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}" \
   kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt >/dev/null
+echo "✅ Kubernetes Auth configured"
 '
 
-# ---------------------------------------------------------------------
-# 8️⃣  Create/update Vault role (idempotent)
-# ---------------------------------------------------------------------
-echo "🔧 Creating or updating Vault role..."
+# Create HANA policy (idempotent)
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c '
-vault write auth/kubernetes/role/'"${ROLE_NAME}"' \
-  bound_service_account_names='"${SERVICE_ACCOUNT}"' \
-  bound_service_account_namespaces='"${NAMESPACE}"' \
-  policies='"${POLICY_NAME}"' \
-  ttl="1h" >/dev/null
+export VAULT_ADDR="http://127.0.0.1:8200"
+echo "📜 Ensuring Vault policy hana-policy..."
+cat <<EOF | vault policy write hana-policy -
+path "kv/data/hana" {
+  capabilities = ["read"]
+}
+EOF
 '
 
-# ---------------------------------------------------------------------
-# 9️⃣  Final verification
-# ---------------------------------------------------------------------
-echo
-echo "✅ Vault deployment and configuration complete!"
-kubectl get pods,svc,ingress -n "${NAMESPACE}" -o wide
+# Create Kubernetes role for HANA (idempotent)
+kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c '
+export VAULT_ADDR="http://127.0.0.1:8200"
+if vault read auth/kubernetes/role/hana-role >/dev/null 2>&1; then
+  echo "ℹ️  Vault role hana-role already exists"
+else
+  echo "👤 Creating Vault role hana-role..."
+  vault write auth/kubernetes/role/hana-role \
+    bound_service_account_names=vault-auth \
+    bound_service_account_namespaces='"${NAMESPACE}"' \
+    policies=hana-policy \
+    ttl=1h
+  echo "✅ Vault role hana-role created"
+fi
+'
 
-echo
-echo "🔍 Verifying role and injector..."
-kubectl get pod -n "${NAMESPACE}" | grep injector || echo "⚠️ Injector pod not visible yet (still starting)."
-kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- vault read -format=json auth/kubernetes/role/${ROLE_NAME} | jq '.data' || true
+# --- Final status summary ---
+echo "🎯 Deployment Summary:"
+kubectl get pods,svc,ingress -n "${NAMESPACE}"
 
-echo
-echo "🎉 Vault is ready for secure secret injection"
-echo "------------------------------------------------------------"
-echo "🪣 Namespace: ${NAMESPACE}"
-echo "👤 Service Account: ${SERVICE_ACCOUNT}"
-echo "🔐 Role: ${ROLE_NAME}"
-echo "📜 Policy: ${POLICY_NAME}"
-echo "📂 Secret Path: ${SECRET_PATH}"
-echo "------------------------------------------------------------"
-echo
-echo "Next step: manually create your secret inside Vault:"
-echo "vault kv put kv/hana master_password=<YOUR_PASSWORD>"
-echo
-echo "Once done, redeploy your HANA StatefulSet — Vault injector will automatically inject the secret."
+echo "✅ Vault successfully deployed and configured in namespace ${NAMESPACE}"
