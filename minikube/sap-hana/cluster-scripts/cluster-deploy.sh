@@ -3,8 +3,8 @@ set -e
 
 echo "🚀 Deploying SAP HANA Express to Minikube..."
 
-# Namespace for HANA
-NAMESPACE="hana"
+# Namespace for demo
+NAMESPACE="demo"
 
 # Create namespace if missing
 kubectl get ns $NAMESPACE &>/dev/null || kubectl create ns $NAMESPACE

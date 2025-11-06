@@ -3,7 +3,7 @@ set -e
 
 IMAGE="ryandevlab/sap-hana:1.0.0"
 CHART_PATH="./sap-hana-chart"
-NAMESPACE="hana"
+NAMESPACE="demo"
 
 echo "🔄 Updating SAP HANA Express image and redeploying..."
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="vault"
 CHART_PATH="./vault-chart"
-NAMESPACE="vault"
+NAMESPACE="demo"
 
 echo "🚀 Deploying Vault to Minikube..."
 

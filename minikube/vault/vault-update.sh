@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="vault-demo"
-NAMESPACE="vault"
+NAMESPACE="demo"
 JOB_NAME="vault-k8s-bootstrap"
 
 echo "🔁 Updating Vault deployment..."

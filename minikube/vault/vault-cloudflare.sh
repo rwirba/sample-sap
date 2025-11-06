@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="vault"
-NAMESPACE="vault"
+NAMESPACE="demo"
 SERVICE="vault-demo"
 DOMAIN=$(jq -r .domain /etc/minikube/env-info.json)
 HOSTNAME="${APP_NAME}.${DOMAIN}"
