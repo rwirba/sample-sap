@@ -11,6 +11,7 @@ spec:
       containers:
         - name: vault-bootstrap
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           command: ["/bin/bash", "/scripts/vault-bootstrap.sh"]
           env:
             - name: VAULT_ADDR
@@ -18,6 +19,7 @@ spec:
           volumeMounts:
             - name: vault-bootstrap-script
               mountPath: /scripts
+              readOnly: true
             - name: vault-storage
               mountPath: /vault/data
       volumes:
@@ -26,4 +28,7 @@ spec:
             name: vault-k8s-bootstrap
             defaultMode: {{ 0755 | int }}
         - name: vault-storage
-          emptyDir: {}
+          hostPath:
+            path: /data/vault
+            type: DirectoryOrCreate
+
