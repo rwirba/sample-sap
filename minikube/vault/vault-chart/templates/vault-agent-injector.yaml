@@ -16,23 +16,21 @@ spec:
         app.kubernetes.io/name: vault-agent-injector
     spec:
       serviceAccountName: vault-auth
-      containers:
+      ccontainers:
         - name: vault-agent-injector
           image: "hashicorp/vault-k8s:1.4.2"
           imagePullPolicy: IfNotPresent
+          command: ["vault-k8s"]
+          args: ["agent-injector", "-log-level=info"]
           env:
-            - name: AGENT_INJECT_LISTEN
-              value: ":8080"
-            - name: AGENT_INJECT_LOG_LEVEL
-              value: "info"
             - name: AGENT_INJECT_VAULT_ADDR
               value: "http://vault-demo.demo.svc:8200"
             - name: AGENT_INJECT_VAULT_AUTH_PATH
               value: "auth/kubernetes"
             - name: AGENT_INJECT_VAULT_ROLE
               value: "hana-role"
-            - name: AGENT_INJECT_VAULT_IMAGE
-              value: "hashicorp/vault:1.15.0"
+            - name: AGENT_INJECT_LOG_LEVEL
+              value: "info"
           ports:
             - name: http
               containerPort: 8080
@@ -44,6 +42,7 @@ spec:
             httpGet:
               path: /health/ready
               port: 8080
+
 ---
 apiVersion: v1
 kind: Service
