@@ -20,8 +20,7 @@ spec:
         - name: vault-agent-injector
           image: "hashicorp/vault-k8s:1.4.2"
           imagePullPolicy: IfNotPresent
-          command: ["vault-k8s"]
-          args: ["agent-injector", "-log-level=info"]
+          command: ["vault-k8s", "agent-injector", "-log-level=info"]
           env:
             - name: AGENT_INJECT_VAULT_ADDR
               value: "http://vault-demo.demo.svc:8200"
