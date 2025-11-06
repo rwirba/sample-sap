@@ -17,7 +17,9 @@ spec:
       annotations:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: "hana-role"
+        # Path to your Vault secret (kv v2)
         vault.hashicorp.com/agent-inject-secret-password.json: "{{ .Values.hana.vault.secretPath }}"
+        # Template to render password.json with correct field from Vault
         vault.hashicorp.com/agent-inject-template-password.json: |
           {{`{{- with secret "`}}{{ .Values.hana.vault.secretPath }}{{`" -}}`}}
           {
