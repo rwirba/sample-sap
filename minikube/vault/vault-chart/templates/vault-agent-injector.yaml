@@ -1,10 +1,13 @@
+{{- if .Values.injector.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: vault-agent-injector
-  namespace: demo
+  namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: vault-agent-injector
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   selector:
@@ -14,6 +17,10 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: vault-agent-injector
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # ensures Helm redeploys the pod when related templates change
+        checksum/config: {{ include (print $.Template.BasePath "/vault-agent-rbac.yaml") . | sha256sum }}
     spec:
       serviceAccountName: vault-auth
       containers:
@@ -25,7 +32,7 @@ spec:
             - "-log-level=info"
           env:
             - name: AGENT_INJECT_VAULT_ADDR
-              value: "http://vault-demo.demo.svc:8200"
+              value: "{{ .Values.injector.externalVaultAddr }}"
             - name: AGENT_INJECT_VAULT_AUTH_PATH
               value: "auth/kubernetes"
             - name: AGENT_INJECT_VAULT_ROLE
@@ -48,7 +55,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: vault-agent-injector
-  namespace: demo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: vault-agent-injector
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
     app.kubernetes.io/name: vault-agent-injector
@@ -60,6 +70,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: vault-agent-injector-role
+  labels:
+    app.kubernetes.io/name: vault-agent-injector
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
@@ -69,6 +82,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: vault-agent-injector-rolebinding
+  labels:
+    app.kubernetes.io/name: vault-agent-injector
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -76,18 +92,21 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: vault-auth
-    namespace: demo
+    namespace: {{ .Release.Namespace }}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: vault-agent-injector-cfg
+  labels:
+    app.kubernetes.io/name: vault-agent-injector
+    app.kubernetes.io/instance: {{ .Release.Name }}
 webhooks:
   - name: vault.hashicorp.com
     clientConfig:
       service:
         name: vault-agent-injector
-        namespace: demo
+        namespace: {{ .Release.Namespace }}
         path: "/mutate"
       caBundle: ""
     admissionReviewVersions: ["v1"]
@@ -100,3 +119,4 @@ webhooks:
     failurePolicy: Ignore
     matchPolicy: Equivalent
     namespaceSelector: {}
+{{- end }}
