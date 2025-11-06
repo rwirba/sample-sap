@@ -34,13 +34,7 @@ injector:
     repository: hashicorp/vault-k8s
     tag: "1.4.2"
   logLevel: info
-  resources:
-    limits:
-      cpu: 250m
-      memory: 256Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
+
 
 persistence:
   enabled: true
