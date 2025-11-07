@@ -1,3 +1,4 @@
+{{- if .Values.injector.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,33 +16,34 @@ spec:
       labels:
         app.kubernetes.io/name: vault-agent-injector
     spec:
-      serviceAccountName: {{ .Values.injector.serviceAccount }}
+      serviceAccountName: {{ .Values.injector.serviceAccount.name }}
       containers:
         - name: vault-agent-injector
           image: "{{ .Values.injector.image.repository }}:{{ .Values.injector.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.injector.image.pullPolicy }}
           args:
             - "agent-inject"
-            - "-log-level={{ .Values.injector.logLevel }}"
+            - "-log-level=info"
           env:
-            - name: AGENT_INJECT_VAULT_ADDR
-              value: "http://vault-demo.{{ .Release.Namespace }}.svc:8200"
-            - name: AGENT_INJECT_VAULT_AUTH_PATH
-              value: "auth/kubernetes"
-            - name: AGENT_INJECT_VAULT_ROLE
-              value: "hana-role"
+          {{- range .Values.injector.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 8080
           livenessProbe:
             httpGet:
-              path: /health/ready
+              path: /ready
               port: 8080
-            initialDelaySeconds: 10
-            timeoutSeconds: 5
+            initialDelaySeconds: 20
+            periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /ready
               port: 8080
-            initialDelaySeconds: 5
-            timeoutSeconds: 3
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.injector.resources | nindent 12 }}
+{{- end }}

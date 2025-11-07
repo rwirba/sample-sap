@@ -4,12 +4,12 @@ kind: ClusterRole
 metadata:
   name: vault-agent-injector-role
 rules:
-  - apiGroups: [""]
-    resources: ["pods", "configmaps", "services"]
-    verbs: ["get", "list", "watch"]
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
-    verbs: ["get", "list", "watch", "create", "update", "delete"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
@@ -24,6 +24,6 @@ roleRef:
   name: vault-agent-injector-role
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.injector.serviceAccount }}
+    name: {{ .Values.injector.serviceAccount.name }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
