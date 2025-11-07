@@ -1,58 +1,63 @@
 #!/bin/bash
 set -euo pipefail
 
-NAMESPACE="vault"
+# -------------------------------------------------------------------
+# Bootstrap Vault Kubernetes Auth Integration
+# Namespace: demo
+# -------------------------------------------------------------------
 
-echo "🚀 Running Vault bootstrap process..."
+NAMESPACE="demo"
+OUTPUT_FILE="/opt/vault-k8s-info.txt"
+BOOTSTRAP_JOB="../vault-chart/templates/vault-bootstrap-job.yaml"
 
-# Wait until Vault is ready
-sleep 10
-kubectl rollout status deploy vault-demo -n ${NAMESPACE} --timeout=300s
+echo "🚀 Starting Vault bootstrap in namespace: ${NAMESPACE}"
 
-# Recreate the Job
-kubectl delete job vault-k8s-bootstrap -n ${NAMESPACE} --ignore-not-found
-kubectl apply -f ../vault-chart/templates/vault-bootstrap-job.yaml
+# --- Wait for Vault deployment readiness ---
+echo "⏳ Checking Vault deployment..."
+kubectl rollout status deploy vault-demo -n "${NAMESPACE}" --timeout=300s
 
-# Monitor job completion
-echo "⏳ Waiting for Vault bootstrap job to complete..."
-kubectl wait --for=condition=complete job/vault-k8s-bootstrap -n ${NAMESPACE} --timeout=180s
+# --- Recreate the bootstrap job (idempotent) ---
+echo "🔁 Recreating Vault bootstrap job..."
+kubectl delete job vault-k8s-bootstrap -n "${NAMESPACE}" --ignore-not-found
+kubectl apply -f "${BOOTSTRAP_JOB}"
 
-echo "✅ Vault Kubernetes Auth configured successfully!"
+echo "🕒 Waiting for bootstrap job completion..."
+kubectl wait --for=condition=complete job/vault-k8s-bootstrap -n "${NAMESPACE}" --timeout=300s || {
+  echo "❌ Vault bootstrap job did not complete successfully."
+  kubectl logs job/vault-k8s-bootstrap -n "${NAMESPACE}" || true
+  exit 1
+}
 
-# --- Backup bootstrap info ---
-if [[ -f /opt/vault-k8s-info.txt ]]; then
-  echo "📤 Backing up vault-k8s-info.txt to S3..."
-  aws s3 cp /opt/vault-k8s-info.txt s3://ryandevlab-bucket/vault/vault-k8s-info.txt --quiet || \
-    echo "⚠️ Failed to upload vault-k8s-info.txt to S3"
-else
-  echo "⚠️ vault-k8s-info.txt not found. Skipping S3 backup."
+# --- Configure Vault Kubernetes Auth ---
+VAULT_SVC_IP=$(kubectl get svc vault-demo -n "${NAMESPACE}" -o jsonpath='{.spec.clusterIP}')
+export VAULT_ADDR="http://${VAULT_SVC_IP}:8200"
+echo "🔐 Using Vault address: ${VAULT_ADDR}"
+
+if [[ ! -f "${OUTPUT_FILE}" ]]; then
+  echo "⚠️  Missing file: ${OUTPUT_FILE}. Run extract-k8s-credentials.sh first."
+  exit 1
 fi
 
-# --- Configure Vault Kubernetes auth ---
-echo "🔐 Configuring Vault Kubernetes auth..."
+K8S_HOST=$(grep '^K8S_HOST' "${OUTPUT_FILE}" | cut -d= -f2-)
+K8S_CA=$(awk '/CA Certificate/{flag=1;next}/JWT/{flag=0}flag' "${OUTPUT_FILE}")
+K8S_JWT=$(awk '/JWT/{flag=1;next}flag' "${OUTPUT_FILE}")
 
-VAULT_ADDR=$(kubectl get svc vault-demo -n ${NAMESPACE} -o jsonpath='{.spec.clusterIP}')
-export VAULT_ADDR="http://${VAULT_ADDR}:8200"
+vault auth enable kubernetes 2>/dev/null || echo "ℹ️  Kubernetes auth already enabled."
 
-if ! vault auth enable kubernetes 2>/dev/null; then
-  echo "✅ Kubernetes auth already enabled"
-fi
-
-for i in {1..3}; do
+for i in {1..5}; do
   if vault write auth/kubernetes/config \
-    token_reviewer_jwt="$(grep -A100 'JWT' /opt/vault-k8s-info.txt | tail -n +2)" \
-    kubernetes_host="$(grep '^K8S_HOST' /opt/vault-k8s-info.txt | cut -d= -f2-)" \
-    kubernetes_ca_cert="$(grep -A100 'CA Certificate' /opt/vault-k8s-info.txt | tail -n +2)"; then
-      echo "✅ Kubernetes auth configured"
+    token_reviewer_jwt="${K8S_JWT}" \
+    kubernetes_host="${K8S_HOST}" \
+    kubernetes_ca_cert="${K8S_CA}" >/dev/null 2>&1; then
+      echo "✅ Vault Kubernetes auth configured successfully."
       break
   else
-      echo "⚠️  Vault not ready yet... retrying in 10s"
+      echo "⚠️  Vault not ready yet, retrying in 10s..."
       sleep 10
   fi
 done
 
-# Cleanup sensitive file
-echo "🧹 Cleaning up local vault-k8s-info.txt..."
-rm -f /opt/vault-k8s-info.txt || true
+echo "🧹 Cleaning up local credential file..."
+rm -f "${OUTPUT_FILE}" || true
 
-echo "🎯 Vault Kubernetes auth fully configured and archived to S3."
+echo "🎯 Vault Kubernetes Auth bootstrap completed successfully."

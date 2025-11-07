@@ -2,30 +2,29 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------
-# Extract Kubernetes credentials for Vault integration
-# Saves: vault-k8s-info.txt (contains HOST, CA, JWT)
+# Extract Kubernetes credentials for Vault ↔ Kubernetes integration
+# Namespace: demo
 # -------------------------------------------------------------------
 
-NAMESPACE="vault"
+NAMESPACE="demo"
 SA_SECRET="vault-auth-token"
 OUTPUT_FILE="/opt/vault-k8s-info.txt"
 
-echo "🔍 Checking for service account and secret..."
+echo "🔍 Checking for ServiceAccount secret in namespace: ${NAMESPACE}"
 if ! kubectl get secret "${SA_SECRET}" -n "${NAMESPACE}" &>/dev/null; then
-  echo "❌ Secret ${SA_SECRET} not found. Make sure vault-chart was deployed first."
+  echo "❌ Secret ${SA_SECRET} not found in namespace ${NAMESPACE}."
+  echo "Make sure Helm has deployed the vault-auth service account and token."
   exit 1
 fi
 
-echo "📡 Extracting data for Vault Kubernetes config..."
+echo "📡 Extracting Kubernetes API credentials..."
 K8S_HOST=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.server}')
 K8S_CA=$(kubectl get secret "${SA_SECRET}" -n "${NAMESPACE}" -o jsonpath='{.data.ca\.crt}' | base64 --decode)
 K8S_JWT=$(kubectl get secret "${SA_SECRET}" -n "${NAMESPACE}" -o jsonpath='{.data.token}' | base64 --decode)
 
-echo "💾 Writing to ${OUTPUT_FILE}..."
+echo "💾 Writing credentials to ${OUTPUT_FILE}..."
 sudo tee "${OUTPUT_FILE}" >/dev/null <<EOF
-# -------------------------------
-# Vault ↔ Kubernetes Integration
-# -------------------------------
+# Vault ↔ Kubernetes Integration (namespace: ${NAMESPACE})
 K8S_HOST=${K8S_HOST}
 
 # ---- Kubernetes CA Certificate ----
@@ -37,9 +36,5 @@ EOF
 
 sudo chmod 600 "${OUTPUT_FILE}"
 
-echo "✅ File saved: ${OUTPUT_FILE}"
-echo "You can now open Vault UI → Access → Auth Methods → Kubernetes"
-echo "Paste values from:"
-echo "  • Kubernetes Host  → ${K8S_HOST}"
-echo "  • Kubernetes CA Cert → (from file section)"
-echo "  • Token Reviewer JWT → (from file section)"
+echo "✅ Credentials saved to: ${OUTPUT_FILE}"
+echo "Use this file when configuring Vault's Kubernetes Auth method."
