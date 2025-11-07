@@ -698,17 +698,14 @@ sudo mkdir -p /data/minikube
 sudo chown -R ec2-user:ec2-user /data/minikube
 echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
 
-echo "🧹 Cleaning up old Minikube setup..."
+echo "🧹 Cleaning Minikube and Podman environment..."
 minikube delete --all --purge || true
-sudo podman volume rm -f minikube || true
+sudo podman rm -f $(sudo podman ps -aq --filter "label=name.minikube.sigs.k8s.io") 2>/dev/null || true
+sudo podman volume rm -f $(sudo podman volume ls -q | grep minikube) 2>/dev/null || true
 sudo podman volume prune -f || true
 
-# # Pre-create a clean volume to avoid conflicts
-# echo "📦 Creating dedicated Podman volume for Minikube..."
-# sudo podman volume create --label name.minikube.sigs.k8s.io=minikube >/dev/null || true
-
-# Prevent Minikube from patching Docker systemd
 export MINIKUBE_FORCE_SYSTEMD=false
+export MINIKUBE_ENABLE_DOCKER=false
 
 # ========= START MINIKUBE =========
 if ! minikube status | grep -q "Running"; then
