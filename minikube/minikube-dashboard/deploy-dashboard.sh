@@ -4,7 +4,7 @@ set -euo pipefail
 echo "🚀 Deploying Minikube Kubernetes Dashboard via Helm..."
 
 APP_NAME="minikube-dashboard"
-NAMESPACE="kubernetes-dashboard"
+NAMESPACE="demo"
 TOKEN_FILE="/etc/minikube/dashboard-token.txt"
 S3_BUCKET="ryandevlab-bucket"
 S3_TOKEN_PATH="s3://${S3_BUCKET}/dashboard-token.txt"
@@ -61,7 +61,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: admin-user
-  namespace: kubernetes-dashboard
+  namespace: demo
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -74,7 +74,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: admin-user
-  namespace: kubernetes-dashboard
+  namespace: demo
 EOF
 
 # --- Generate admin token ---
