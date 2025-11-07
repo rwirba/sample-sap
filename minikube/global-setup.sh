@@ -703,9 +703,9 @@ minikube delete --all --purge || true
 sudo podman volume rm -f minikube || true
 sudo podman volume prune -f || true
 
-# Pre-create a clean volume to avoid conflicts
-echo "📦 Creating dedicated Podman volume for Minikube..."
-sudo podman volume create --label name.minikube.sigs.k8s.io=minikube >/dev/null || true
+# # Pre-create a clean volume to avoid conflicts
+# echo "📦 Creating dedicated Podman volume for Minikube..."
+# sudo podman volume create --label name.minikube.sigs.k8s.io=minikube >/dev/null || true
 
 # Prevent Minikube from patching Docker systemd
 export MINIKUBE_FORCE_SYSTEMD=false
