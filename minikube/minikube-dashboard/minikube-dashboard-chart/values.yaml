@@ -1,8 +1,13 @@
 fullnameOverride: "kubernetes-dashboard"
 
 image:
-  repository: kubernetesui/dashboard
+  repository: gcr.io/k8s-minikube/kubernetes-dashboard
   tag: v2.7.0
+  pullPolicy: IfNotPresent
+
+metricsScraper:
+  repository: gcr.io/k8s-minikube/metrics-scraper
+  tag: v1.0.8
   pullPolicy: IfNotPresent
 
 replicaCount: 1
@@ -18,3 +23,9 @@ ingress:
   enabled: true
   className: "nginx"
   host: "dashboard.ryandemolab.app"
+
+rbac:
+  create: true
+
+# Allow Helm to use release namespace dynamically (works for demo)
+namespaceOverride: ""
