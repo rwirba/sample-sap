@@ -693,7 +693,7 @@ REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
 echo "Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM"
 echo "Using Minikube config → CPUs=${REQ_CPUS}, Memory=${REQ_MEM}MB"
 
-# ========= MINIKUBE SETUP =========
+# ========= CLEANUP AND PREP =========
 sudo mkdir -p /data/minikube
 sudo chown -R ec2-user:ec2-user /data/minikube
 echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
@@ -701,19 +701,22 @@ echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
 echo "🧹 Cleaning up old Minikube setup..."
 minikube delete --all --purge || true
 sudo podman volume rm -f minikube || true
-sudo podman volume rm -f minikube-storage || true
 sudo podman volume prune -f || true
+
+# Pre-create a clean volume to avoid conflicts
+echo "📦 Creating dedicated Podman volume for Minikube..."
+sudo podman volume create --label name.minikube.sigs.k8s.io=minikube >/dev/null || true
 
 # Prevent Minikube from patching Docker systemd
 export MINIKUBE_FORCE_SYSTEMD=false
 
+# ========= START MINIKUBE =========
 if ! minikube status | grep -q "Running"; then
   echo "🚀 Starting Minikube (Podman driver) with persistent storage..."
   minikube start \
     --driver=podman \
     --mount=true \
     --mount-string="/data/minikube:/var/lib/minikube" \
-    --volume-name=minikube-persistent \
     --cpus="${REQ_CPUS}" \
     --memory="${REQ_MEM}" \
     --disk-size=50g \
@@ -722,7 +725,7 @@ else
   echo "✅ Minikube already running."
 fi
 
-# ========= SYSTEMD AUTOSTART =========
+# ========= AUTOSTART SERVICE =========
 echo "⚙️  Configuring Minikube autostart systemd service..."
 sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
 [Unit]
@@ -732,7 +735,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --volume-name=minikube-persistent --force
+ExecStart=/usr/local/bin/minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
 RemainAfterExit=yes
 User=ec2-user
 
@@ -746,7 +749,7 @@ echo "✅ Minikube will now auto-start on EC2 reboot."
 
 kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
-# ========= SAP HANA KERNEL TUNING =========
+# ========= KERNEL TUNING =========
 echo "[INFO] Applying kernel parameters for SAP HANA..."
 sudo tee /etc/sysctl.d/99-hana.conf >/dev/null <<'EOF'
 fs.file-max=20000000
@@ -802,8 +805,8 @@ APPS=("dashboard" "hello" "ads" "vault")
 for APP in "${APPS[@]}"; do
   JSON_FILE="${LOCAL_CF_DIR}/${APP}-tunnel.json"
   S3_FILE="${S3_TUNNEL_PATH}/${APP}-tunnel.json"
-
   echo "🔹 Processing tunnel for ${APP}..."
+
   if aws s3 ls "${S3_FILE}" >/dev/null 2>&1; then
     aws s3 cp "${S3_FILE}" "${JSON_FILE}" --quiet
   elif cloudflared tunnel list 2>/dev/null | grep -q "${APP}-tunnel"; then
