@@ -15,7 +15,7 @@ spec:
           command: ["/bin/bash", "/scripts/vault-bootstrap.sh"]
           env:
             - name: VAULT_ADDR
-              value: "http://vault-demo:8200"
+              value: "http://vault-demo.{{ .Release.Namespace }}.svc:8200"
           volumeMounts:
             - name: vault-bootstrap-script
               mountPath: /scripts
@@ -26,9 +26,8 @@ spec:
         - name: vault-bootstrap-script
           configMap:
             name: vault-k8s-bootstrap
-            defaultMode: {{ 0755 | int }}
+            defaultMode: 0755
         - name: vault-storage
           hostPath:
             path: /data/vault
             type: DirectoryOrCreate
-

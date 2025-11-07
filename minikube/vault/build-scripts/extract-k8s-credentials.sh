@@ -37,4 +37,3 @@ EOF
 sudo chmod 600 "${OUTPUT_FILE}"
 
 echo "✅ Credentials saved to: ${OUTPUT_FILE}"
-echo "Use this file when configuring Vault's Kubernetes Auth method."

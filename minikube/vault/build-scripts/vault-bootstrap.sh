@@ -2,31 +2,37 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------
-# Bootstrap Vault Kubernetes Auth Integration
-# Namespace: demo
+# Bootstrap Vault Kubernetes Auth Integration (Helm-managed)
+# Everything runs in namespace "demo"
 # -------------------------------------------------------------------
 
 NAMESPACE="demo"
 OUTPUT_FILE="/opt/vault-k8s-info.txt"
-BOOTSTRAP_JOB="../vault-chart/templates/vault-bootstrap-job.yaml"
+CHART_PATH="../vault-chart"
+TIMEOUT="10m"
 
 echo "🚀 Starting Vault bootstrap in namespace: ${NAMESPACE}"
 
-# --- Wait for Vault deployment readiness ---
-echo "⏳ Checking Vault deployment..."
-kubectl rollout status deploy vault-demo -n "${NAMESPACE}" --timeout=300s
+# --- Ensure Vault deployment is ready ---
+echo "⏳ Checking Vault deployment rollout..."
+kubectl rollout status deploy vault-demo -n "${NAMESPACE}" --timeout="${TIMEOUT}"
 
-# --- Recreate the bootstrap job (idempotent) ---
+# --- Recreate and apply Helm-rendered bootstrap job ---
 echo "🔁 Recreating Vault bootstrap job..."
 kubectl delete job vault-k8s-bootstrap -n "${NAMESPACE}" --ignore-not-found
-kubectl apply -f "${BOOTSTRAP_JOB}"
 
-echo "🕒 Waiting for bootstrap job completion..."
-kubectl wait --for=condition=complete job/vault-k8s-bootstrap -n "${NAMESPACE}" --timeout=300s || {
-  echo "❌ Vault bootstrap job did not complete successfully."
+echo "📦 Rendering Helm template for vault-bootstrap-job..."
+helm template vault-demo "${CHART_PATH}" \
+  --namespace "${NAMESPACE}" \
+  --show-only templates/vault-bootstrap-job.yaml | kubectl apply -f -
+
+# --- Wait for job completion ---
+echo "🕒 Waiting for Vault bootstrap job to complete..."
+if ! kubectl wait --for=condition=complete job/vault-k8s-bootstrap -n "${NAMESPACE}" --timeout="${TIMEOUT}"; then
+  echo "❌ Vault bootstrap job did not complete successfully. Logs:"
   kubectl logs job/vault-k8s-bootstrap -n "${NAMESPACE}" || true
   exit 1
-}
+fi
 
 # --- Configure Vault Kubernetes Auth ---
 VAULT_SVC_IP=$(kubectl get svc vault-demo -n "${NAMESPACE}" -o jsonpath='{.spec.clusterIP}')
@@ -57,7 +63,7 @@ for i in {1..5}; do
   fi
 done
 
-echo "🧹 Cleaning up local credential file..."
+echo "🧹 Cleaning up sensitive credential file..."
 rm -f "${OUTPUT_FILE}" || true
 
 echo "🎯 Vault Kubernetes Auth bootstrap completed successfully."
