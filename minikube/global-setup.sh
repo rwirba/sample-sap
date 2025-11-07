@@ -454,6 +454,10 @@ sudo mkdir -p /data/minikube
 sudo chown -R ec2-user:ec2-user /data/minikube
 echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
 
+echo "🧹 Cleaning up old Minikube volumes..."
+minikube delete --all --purge || true
+sudo podman volume rm minikube || true
+
 if ! minikube status | grep -q "Running"; then
   echo "🚀 Starting Minikube (Podman driver) with persistent storage..."
   minikube start \
