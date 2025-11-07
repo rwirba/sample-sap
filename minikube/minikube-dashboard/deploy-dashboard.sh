@@ -42,8 +42,8 @@ fi
 helm upgrade --install "$APP_NAME" ./minikube-dashboard-chart \
   -n "$NAMESPACE" \
   --create-namespace \
-  --set persistence.enabled=true \
-  --atomic --timeout 5m
+  --set persistence.enabled=true 
+
 
 # --- Wait for Dashboard pods to be ready ---
 echo "⏳ Waiting for Dashboard pods to become ready..."
