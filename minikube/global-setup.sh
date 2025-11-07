@@ -656,7 +656,7 @@ if ! command -v cloudflared &>/dev/null; then
   sudo chmod +x /usr/local/bin/cloudflared
 fi
 
-# --- Passwordless sudo ---
+# --- Passwordless sudo for ec2-user ---
 if ! sudo grep -q "^ec2-user" /etc/sudoers.d/ec2-user 2>/dev/null; then
   echo "ec2-user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ec2-user >/dev/null
   sudo chmod 440 /etc/sudoers.d/ec2-user
@@ -684,46 +684,57 @@ if ! command -v helm &>/dev/null; then
   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
 fi
 
+# ========= PREVENT DOCKER PATCH FAILURE =========
+echo "⚙️  Creating fake Docker service to prevent Minikube patch bug..."
+sudo tee /etc/systemd/system/docker.service >/dev/null <<'EOF'
+[Unit]
+Description=Fake Docker placeholder
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+
 # ========= SYSTEM RESOURCES =========
 HOST_CPUS=$(nproc)
 HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')  # MB
 REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
 REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
 
-echo "Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM"
-echo "Using Minikube config → CPUs=${REQ_CPUS}, Memory=${REQ_MEM}MB"
+echo "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM"
+echo "⚙️  Using Minikube config → CPUs=${REQ_CPUS}, Memory=${REQ_MEM}MB"
 
-# ========= CLEANUP AND PREP =========
-sudo mkdir -p /data/minikube
-sudo chown -R ec2-user:ec2-user /data/minikube
-echo "🗄️  Mounting /data/minikube for persistent cluster storage..."
-
-echo "🧹 Cleaning Minikube and Podman environment..."
+# ========= CLEANUP OLD ARTIFACTS =========
+echo "🧹 Cleaning old Minikube/Podman artifacts..."
 minikube delete --all --purge || true
 sudo podman rm -f $(sudo podman ps -aq --filter "label=name.minikube.sigs.k8s.io") 2>/dev/null || true
 sudo podman volume rm -f $(sudo podman volume ls -q | grep minikube) 2>/dev/null || true
 sudo podman volume prune -f || true
 
+# ========= PREPARE STORAGE =========
+sudo mkdir -p /data/minikube /data/hxe /opt/hana /opt/scripts
+sudo chown -R ec2-user:ec2-user /data
+sudo chmod -R 777 /data /opt
+
+# ========= START MINIKUBE =========
+echo "🚀 Starting Minikube (Podman driver) cleanly..."
 export MINIKUBE_FORCE_SYSTEMD=false
 export MINIKUBE_ENABLE_DOCKER=false
 
-# ========= START MINIKUBE =========
-if ! minikube status | grep -q "Running"; then
-  echo "🚀 Starting Minikube (Podman driver) with persistent storage..."
-  minikube start \
-    --driver=podman \
-    --mount=true \
-    --mount-string="/data/minikube:/var/lib/minikube" \
-    --cpus="${REQ_CPUS}" \
-    --memory="${REQ_MEM}" \
-    --disk-size=50g \
-    --force
-else
-  echo "✅ Minikube already running."
-fi
+minikube start \
+  --driver=podman \
+  --container-runtime=cri-o \
+  --mount=true \
+  --mount-string="/data/minikube:/var/lib/minikube" \
+  --cpus="${REQ_CPUS}" \
+  --memory="${REQ_MEM}" \
+  --disk-size=50g \
+  --force
 
-# ========= AUTOSTART SERVICE =========
-echo "⚙️  Configuring Minikube autostart systemd service..."
+# ========= AUTO-START ON REBOOT =========
+echo "🛠️  Enabling Minikube auto-start on EC2 reboot..."
 sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
 [Unit]
 Description=Auto-start Minikube on EC2 boot
@@ -732,7 +743,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
+ExecStart=/usr/local/bin/minikube start --driver=podman --container-runtime=cri-o --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
 RemainAfterExit=yes
 User=ec2-user
 
@@ -742,23 +753,9 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable minikube-autostart.service
-echo "✅ Minikube will now auto-start on EC2 reboot."
 
+# ========= VERIFY NODE =========
 kubectl wait --for=condition=Ready node --all --timeout=180s || true
-
-# ========= KERNEL TUNING =========
-echo "[INFO] Applying kernel parameters for SAP HANA..."
-sudo tee /etc/sysctl.d/99-hana.conf >/dev/null <<'EOF'
-fs.file-max=20000000
-fs.aio-max-nr=262144
-vm.memory_failure_early_kill=1
-vm.max_map_count=135217728
-net.ipv4.ip_local_port_range=40000 60999
-EOF
-sudo sysctl --system
-
-sudo mkdir -p /data/hxe /opt/hana /opt/scripts
-sudo chmod -R 777 /data /opt
 
 # ========= ENABLE INGRESS =========
 if ! kubectl get ns ingress-nginx &>/dev/null; then
@@ -774,8 +771,8 @@ kubectl wait -n ingress-nginx \
 TMPDIR=$(mktemp -d)
 aws s3 cp "$S3_CERT_PATH" "$TMPDIR/origin.crt" --quiet || true
 aws s3 cp "$S3_KEY_PATH" "$TMPDIR/origin.key" --quiet || true
-
 kubectl create ns "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
 if [[ -f "$TMPDIR/origin.crt" && -f "$TMPDIR/origin.key" ]]; then
   kubectl delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found
   kubectl create secret tls "$SECRET_NAME" \
@@ -784,12 +781,12 @@ if [[ -f "$TMPDIR/origin.crt" && -f "$TMPDIR/origin.key" ]]; then
     -n "$NAMESPACE"
   echo "✅ TLS secret created in namespace '$NAMESPACE'"
 else
-  echo "⚠️ TLS certificate files not found in S3. Skipping."
+  echo "⚠️  TLS certificate files not found in S3. Skipping."
 fi
 rm -rf "$TMPDIR"
 
 # ========= CLOUDFLARE TUNNELS =========
-echo "🧭 Checking Cloudflare tunnels..."
+echo "🧭 Syncing Cloudflare tunnels..."
 sudo mkdir -p "$LOCAL_CF_DIR"
 sudo chown -R ec2-user:ec2-user "$LOCAL_CF_DIR"
 
@@ -818,17 +815,6 @@ for APP in "${APPS[@]}"; do
   aws s3 cp "${JSON_FILE}" "${S3_FILE}" --quiet
 done
 
-# ========= DEMO NAMESPACE CONFIG =========
-echo "🔐 Setting up demo namespace configuration..."
-sudo mkdir -p /data/vault
-sudo chmod -R 777 /data/vault
-
-kubectl create ns "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n "$NAMESPACE" create secret generic vault-config \
-  --from-literal=initialized="false" \
-  --dry-run=client -o yaml | kubectl apply -f -
-echo "✅ Vault and all configurations are under namespace '$NAMESPACE'"
-
 # ========= RECORD ENVIRONMENT =========
 CLUSTER_IP=$(minikube ip)
 sudo mkdir -p /etc/minikube
@@ -849,4 +835,4 @@ EOF
 echo "💾 Environment info saved:"
 cat /etc/minikube/env-info.json
 
-echo "🎯 Global setup complete with everything running in the '$NAMESPACE' namespace."
+echo "🎯 Global setup complete — all workloads will use namespace '$NAMESPACE'."
