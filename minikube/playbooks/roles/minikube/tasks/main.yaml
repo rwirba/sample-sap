@@ -17,14 +17,25 @@
     mode: '0755'
   when: not minikube_installed.stat.exists
 
-- name: Start Minikube
+- name: Check if Minikube is running
+  shell: minikube status | grep -q "host: Running"
+  register: minikube_status
+  ignore_errors: true
+  changed_when: false
+
+- name: Start Minikube if not running
   command: >
-    minikube start --driver={{ minikube_driver }}
+    /usr/local/bin/minikube start --driver={{ minikube_driver }}
     --container-runtime={{ minikube_runtime }}
     --mount --mount-string="{{ minikube_mount_path }}:/var/lib/minikube"
     --cpus={{ req_cpus }} --memory={{ req_mem }} --disk-size={{ minikube_disk_size }} --force
-  args:
-    creates: "{{ minikube_mount_path }}/.minikube_started"
+  when: minikube_status.rc != 0
+
+- name: Mark Minikube as started
+  file:
+    path: "{{ minikube_mount_path }}/.minikube_started"
+    state: touch
+  when: minikube_status.rc != 0
 
 - name: Deploy autostart systemd unit
   template:
