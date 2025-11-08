@@ -30,6 +30,16 @@
     --mount --mount-string="{{ minikube_mount_path }}:/var/lib/minikube"
     --cpus={{ req_cpus }} --memory={{ req_mem }} --disk-size={{ minikube_disk_size }} --force
   when: minikube_status.rc != 0
+  become: true
+  become_user: ec2-user
+
+- name: Pull Minikube images into cache
+  command: /usr/local/bin/minikube image pull {{ item }}
+  loop:
+    - kubernetesui/dashboard:v2.7.0
+    - kubernetesui/metrics-scraper:v1.0.8
+  become: true
+  become_user: ec2-user
 
 - name: Mark Minikube as started
   file:
