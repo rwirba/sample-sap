@@ -1,0 +1,7 @@
+minikube_driver: podman
+minikube_runtime: cri-o
+minikube_mount_path: /data/minikube
+minikube_disk_size: 50g
+minikube_autostart_template: minikube-autostart.service.j2
+req_cpus: 4
+req_mem: 8000

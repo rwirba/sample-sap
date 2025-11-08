@@ -1,0 +1,85 @@
+- name: Create namespace
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ namespace }}"
+    state: present
+
+- name: Download TLS cert from S3
+  aws_s3:
+    bucket: "{{ s3_bucket }}"
+    object: origin.crt
+    dest: "/tmp/origin.crt"
+    mode: get
+
+- name: Download TLS key from S3
+  aws_s3:
+    bucket: "{{ s3_bucket }}"
+    object: origin.key
+    dest: "/tmp/origin.key"
+    mode: get
+
+- name: Create TLS secret
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ namespace }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ secret_name }}"
+      type: kubernetes.io/tls
+      data:
+        tls.crt: "{{ lookup('file', '/tmp/origin.crt') | b64encode }}"
+        tls.key: "{{ lookup('file', '/tmp/origin.key') | b64encode }}"
+
+- name: Add Helm repo
+  community.kubernetes.helm_repository:
+    name: kubernetes-dashboard
+    repo_url: https://kubernetes.github.io/dashboard
+
+- name: Deploy dashboard
+  community.kubernetes.helm:
+    name: kubernetes-dashboard
+    chart_ref: kubernetes-dashboard/kubernetes-dashboard
+    release_namespace: "{{ namespace }}"
+    create_namespace: true
+    values:
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: "dashboard.{{ domain }}"
+      service:
+        type: ClusterIP
+        port: 443
+        targetPort: 8443
+    atomic: true
+    timeout: 900
+
+- name: Apply admin-user RBAC
+  template:
+    src: admin-user-rbac.yaml.j2
+    dest: /tmp/admin-user-rbac.yaml
+
+- name: Apply RBAC manifest
+  kubernetes.core.k8s:
+    src: /tmp/admin-user-rbac.yaml
+
+- name: Generate dashboard token
+  command: kubectl -n {{ namespace }} create token admin-user --duration=24h
+  register: dashboard_token
+  changed_when: false
+
+- name: Save token locally
+  copy:
+    content: "{{ dashboard_token.stdout }}"
+    dest: "{{ dashboard_token_path }}"
+    mode: '0644'
+
+- name: Upload token to S3
+  aws_s3:
+    bucket: "{{ s3_bucket }}"
+    object: dashboard-token.txt
+    src: "{{ dashboard_token_path }}"
+    mode: put

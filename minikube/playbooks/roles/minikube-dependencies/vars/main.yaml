@@ -1,0 +1,11 @@
+required_packages:
+  - conntrack
+  - curl
+  - wget
+  - vim
+  - unzip
+  - podman
+  - jq
+  - awscli
+  - policycoreutils
+sudoer_user: ec2-user

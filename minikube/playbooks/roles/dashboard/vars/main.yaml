@@ -1,0 +1,7 @@
+domain: ryandemolab.app
+namespace: demo
+secret_name: cloudflare-cert
+s3_bucket: ryandevlab-bucket
+s3_cert_path: "s3://{{ s3_bucket }}/origin.crt"
+s3_key_path: "s3://{{ s3_bucket }}/origin.key"
+dashboard_token_path: "/etc/minikube/dashboard-token.txt"

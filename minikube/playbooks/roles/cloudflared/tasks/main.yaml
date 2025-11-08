@@ -1,0 +1,21 @@
+- name: Install Cloudflared
+  get_url:
+    url: "{{ url }}"
+    dest: "{{ cloudflared_bin }}"
+    mode: '0755'
+
+- name: Create Cloudflared config dir
+  file:
+    path: "{{ local_cf_dir }}"
+    state: directory
+    owner: ec2-user
+    mode: '0755'
+
+- name: Check for Cloudflare cert
+  stat:
+    path: "{{ local_cf_dir }}/cert.pem"
+  register: cf_cert
+
+- name: Prompt for Cloudflare login
+  command: cloudflared login
+  when: not cf_cert.stat.exists

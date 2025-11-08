@@ -1,0 +1,34 @@
+- name: Create mount directory
+  file:
+    path: "{{ minikube_mount_path }}"
+    state: directory
+    owner: ec2-user
+    mode: '0777'
+
+- name: Install Minikube
+  get_url:
+    url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+    dest: /usr/local/bin/minikube
+    mode: '0755'
+  when: not minikube_installed.stat.exists
+
+- name: Start Minikube
+  command: >
+    minikube start --driver={{ minikube_driver }}
+    --container-runtime={{ minikube_runtime }}
+    --mount --mount-string="{{ minikube_mount_path }}:/var/lib/minikube"
+    --cpus={{ req_cpus }} --memory={{ req_mem }} --disk-size={{ minikube_disk_size }} --force
+  args:
+    creates: "{{ minikube_mount_path }}/.minikube_started"
+
+- name: Deploy autostart systemd unit
+  template:
+    src: "{{ minikube_autostart_template }}"
+    dest: /etc/systemd/system/minikube-autostart.service
+    mode: '0644'
+
+- name: Enable autostart
+  systemd:
+    name: minikube-autostart.service
+    enabled: true
+    daemon_reload: true

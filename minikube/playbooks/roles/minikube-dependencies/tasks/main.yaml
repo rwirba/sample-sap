@@ -1,0 +1,10 @@
+- name: Install required packages
+  dnf:
+    name: "{{ required_packages }}"
+    state: present
+
+- name: Ensure passwordless sudo
+  copy:
+    dest: "/etc/sudoers.d/{{ sudoer_user }}"
+    content: "{{ sudoer_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'

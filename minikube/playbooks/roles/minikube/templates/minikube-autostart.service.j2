@@ -1,0 +1,13 @@
+[Unit]
+Description=Auto-start Minikube on EC2 boot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/minikube start --driver={{ minikube_driver }} --container-runtime={{ minikube_runtime }} --mount=true --mount-string="{{ minikube_mount_path }}:/var/lib/minikube" --force
+RemainAfterExit=yes
+User=ec2-user
+
+[Install]
+WantedBy=multi-user.target
