@@ -66,9 +66,12 @@ resource "aws_instance" "rhel_demo1" {
     user_data = <<-EOF
               #!/bin/bash
               dnf -y update 
-              dnf -y install git
+              dnf -y install git python3-pip
+              pip3 install ansible
               echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
               chown ec2-user:ec2-user /home/ec2-user/.bashrc
+              /usr/local/bin/ansible-galaxy collection install community.general
+              /usr/local/bin/ansible-galaxy collection install ansible.posix
               EOF
 
 
