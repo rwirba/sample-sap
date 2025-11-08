@@ -860,44 +860,62 @@ fi
 
 
 # ==============================================================
-# 🧠 DASHBOARD DEPLOYMENT (Helm)
+# 🧠 DEPLOY KUBERNETES DASHBOARD VIA HELM
 # ==============================================================
+
 echo "🧩 Deploying Kubernetes Dashboard via Helm repo..."
-helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ >/dev/null
+
+# --- Ensure Helm repo is added ---
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard --force-update >/dev/null
 helm repo update >/dev/null
 
-# Pre-pull images
-echo "📦 Pre-pulling Dashboard images into Minikube cache..."
+# --- Pre-pull required images to speed up first deploy ---
+echo "📦 Pre-pulling Kubernetes Dashboard images..."
 for IMG in \
   kubernetesui/dashboard:v2.7.0 \
   kubernetesui/metrics-scraper:v1.0.8; do
-  echo "→ pulling $IMG"
+  echo "→ Pulling $IMG into Minikube cache..."
   for i in {1..3}; do
     if minikube image pull "$IMG"; then
       echo "✅ Pulled $IMG"
       break
+    else
+      echo "⚠️ Retry #$i for $IMG..."
+      sleep 10
     fi
-    echo "⚠️ Retry $i for $IMG..."
-    sleep 10
   done
 done
 
+# --- Function to safely deploy via Helm with retry ---
+deploy_dashboard() {
+  helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+    --namespace "$NAMESPACE" \
+    --create-namespace \
+    --set fullnameOverride="kubernetes-dashboard" \
+    --set ingress.enabled=true \
+    --set ingress.className=nginx \
+    --set ingress.hosts[0].host="dashboard.${DOMAIN}" \
+    --set service.type=ClusterIP \
+    --set service.port=443 \
+    --set service.targetPort=8443 \
+    --atomic --timeout 15m \
+    | grep -v "unrecognized format" || true
+}
 
-helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-  --namespace "$NAMESPACE" --create-namespace \
-  --set fullnameOverride="kubernetes-dashboard" \
-  --set ingress.enabled=true \
-  --set ingress.className=nginx \
-  --set ingress.hosts[0].host="dashboard.${DOMAIN}" \
-  --set service.type=ClusterIP \
-  --set service.port=443 \
-  --set service.targetPort=8443 \
-  --atomic --timeout 5m
+echo "🚀 Deploying Dashboard..."
+if ! deploy_dashboard; then
+  echo "⚠️ Dashboard deployment failed on first try, retrying once after 30 s..."
+  sleep 30
+  deploy_dashboard || echo "❌ Dashboard installation failed — continuing to next steps."
+fi
 
-kubectl wait --for=condition=Ready pod -l k8s-app=kubernetes-dashboard -n "$NAMESPACE" --timeout=180s || true
+# --- Wait for Dashboard pods to be ready ---
+echo "⏳ Waiting for Dashboard pods to be ready..."
+kubectl wait --for=condition=Ready pod -l "k8s-app=kubernetes-dashboard" -n "$NAMESPACE" --timeout=300s || true
 
-# --- Create admin account ---
-cat <<EOF | kubectl apply -f -
+# --- Create admin user + RBAC ---
+echo "🔐 Ensuring admin-user RBAC setup..."
+cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -907,66 +925,33 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: admin-user
+  name: admin-user-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
-- kind: ServiceAccount
-  name: admin-user
-  namespace: ${NAMESPACE}
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: ${NAMESPACE}
 EOF
 
-TOKEN=$(kubectl -n "$NAMESPACE" create token admin-user)
-echo "$TOKEN" | sudo tee /etc/minikube/dashboard-token.txt >/dev/null
-
-# ==============================================================
-# 🌐 CLOUDFLARE DASHBOARD TUNNEL
-# ==============================================================
-TUNNEL_NAME="dashboard-tunnel"
-TUNNEL_JSON="${LOCAL_CF_DIR}/${TUNNEL_NAME}.json"
-S3_TUNNEL_FILE="${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json"
-
-if [[ ! -f "$TUNNEL_JSON" ]]; then
-  if aws s3 ls "$S3_TUNNEL_FILE" >/dev/null 2>&1; then
-    aws s3 cp "$S3_TUNNEL_FILE" "$TUNNEL_JSON" --quiet
-  else
-    cloudflared tunnel create "$TUNNEL_NAME"
-    aws s3 cp "$TUNNEL_JSON" "$S3_TUNNEL_FILE" --quiet || true
-  fi
+# --- Generate admin token and upload to S3 ---
+TOKEN=$(kubectl -n "$NAMESPACE" create token admin-user --duration=24h || true)
+if [[ -n "$TOKEN" ]]; then
+  echo "$TOKEN" | sudo tee /etc/minikube/dashboard-token.txt >/dev/null
+  aws s3 cp /etc/minikube/dashboard-token.txt "s3://${S3_BUCKET}/dashboard-token.txt" --quiet || true
+  echo "✅ Dashboard admin token saved and uploaded to S3."
+else
+  echo "⚠️ Failed to generate dashboard token."
 fi
 
-cat <<EOF > "${LOCAL_CF_DIR}/config.yml"
-tunnel: ${TUNNEL_NAME}
-credentials-file: ${TUNNEL_JSON}
-ingress:
-  - hostname: dashboard.${DOMAIN}
-    service: http://localhost:80
-  - service: http_status:404
-EOF
-
-sudo tee /etc/systemd/system/cloudflared-dashboard.service >/dev/null <<EOF
-[Unit]
-Description=Cloudflare Tunnel for Kubernetes Dashboard
-After=network-online.target
-[Service]
-ExecStart=/usr/local/bin/cloudflared tunnel run ${TUNNEL_NAME}
-Restart=always
-User=ec2-user
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now cloudflared-dashboard.service
-
-# ==============================================================
-# ✅ SUMMARY
-# ==============================================================
-echo ""
-echo "🎯 Environment setup complete!"
-echo "🌐 Dashboard: https://dashboard.${DOMAIN}"
-echo "🔑 Token saved to /etc/minikube/dashboard-token.txt"
-echo "☁️ Tunnel credentials: ${S3_TUNNEL_FILE}"
-echo ""
+# --- Expose Dashboard via Cloudflare Tunnel ---
+echo "🌐 Setting up Cloudflare tunnel for dashboard..."
+DASH_TUNNEL_JSON="${LOCAL_CF_DIR}/dashboard-tunnel.json"
+if [[ -f "$DASH_TUNNEL_JSON" ]]; then
+  cloudflared tunnel route dns dashboard-tunnel "dashboard.${DOMAIN}" || true
+  echo "✅ Cloudflare tunnel ready → https://dashboard.${DOMAIN}"
+else
+  echo "⚠️ Dashboard tunnel credentials not found, skipping tunnel setup."
+fi
