@@ -757,10 +757,16 @@ echo "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM → Using ${REQ_CPUS} CPUs
 
 sudo mkdir -p /data/minikube
 sudo chown -R ec2-user:ec2-user /data/minikube
-minikube delete --all --purge || true
+sudo chmod -R 777 /data/minikube
 
-if ! minikube status | grep -q "host: Running"; then
-  echo "🚀 Starting Minikube..."
+# --- Start Minikube only if not running ---
+if minikube status | grep -q "host: Running"; then
+  echo "✅ Minikube already running — skipping startup only."
+else
+  if [[ -d /data/minikube && -n "$(ls -A /data/minikube 2>/dev/null)" ]]; then
+    echo "⚠️  /data/minikube not empty — assuming existing cluster, skipping start."
+  else
+    echo "🚀 Starting Minikube (Podman driver)..."
   minikube start \
     --driver=podman \
     --container-runtime=cri-o \
