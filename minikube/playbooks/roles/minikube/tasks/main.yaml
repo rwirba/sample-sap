@@ -18,7 +18,7 @@
   when: not minikube_installed.stat.exists
 
 - name: Check if Minikube is running
-  shell: minikube status | grep -q "host: Running"
+  shell: "minikube status | grep -q \"host: Running\""
   register: minikube_status
   ignore_errors: true
   changed_when: false
