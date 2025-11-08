@@ -867,8 +867,21 @@ helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ >/dev
 helm repo update >/dev/null
 
 # Pre-pull images
-minikube image pull kubernetesui/dashboard:v2.7.0 || true
-minikube image pull kubernetesui/metrics-scraper:v1.0.8 || true
+echo "📦 Pre-pulling Dashboard images into Minikube cache..."
+for IMG in \
+  kubernetesui/dashboard:v2.7.0 \
+  kubernetesui/metrics-scraper:v1.0.8; do
+  echo "→ pulling $IMG"
+  for i in {1..3}; do
+    if minikube image pull "$IMG"; then
+      echo "✅ Pulled $IMG"
+      break
+    fi
+    echo "⚠️ Retry $i for $IMG..."
+    sleep 10
+  done
+done
+
 
 helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
   --namespace "$NAMESPACE" --create-namespace \
