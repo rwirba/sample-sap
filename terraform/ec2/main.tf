@@ -72,6 +72,7 @@ resource "aws_instance" "rhel_demo1" {
               chown ec2-user:ec2-user /home/ec2-user/.bashrc
               /usr/local/bin/ansible-galaxy collection install community.general
               /usr/local/bin/ansible-galaxy collection install ansible.posix
+              ansible-galaxy collection install community.kubernetes
               EOF
 
 

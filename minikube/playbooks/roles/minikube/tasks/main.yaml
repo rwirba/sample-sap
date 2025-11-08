@@ -5,6 +5,11 @@
     owner: ec2-user
     mode: '0777'
 
+- name: Check if Minikube is already installed
+  stat:
+    path: /usr/local/bin/minikube
+  register: minikube_installed
+
 - name: Install Minikube
   get_url:
     url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
