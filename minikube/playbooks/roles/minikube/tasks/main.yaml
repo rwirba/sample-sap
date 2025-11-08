@@ -23,6 +23,13 @@
   ignore_errors: true
   changed_when: false
 
+- name: Ensure clean Minikube state (optional cleanup)
+  file:
+    path: "{{ minikube_mount_path }}"
+    state: absent
+  become: true
+  when: minikube_force_clean | default(false)
+  
 - name: Start Minikube if not running
   command: >
     /usr/local/bin/minikube start --driver={{ minikube_driver }}
