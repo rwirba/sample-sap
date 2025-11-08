@@ -16,6 +16,6 @@
     path: "{{ local_cf_dir }}/cert.pem"
   register: cf_cert
 
-- name: Prompt for Cloudflare login
-  command: cloudflared login
-  when: not cf_cert.stat.exists
+# - name: Prompt for Cloudflare login
+#   command: cloudflared login
+#   when: not cf_cert.stat.exists
