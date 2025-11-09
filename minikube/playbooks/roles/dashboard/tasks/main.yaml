@@ -1,13 +1,17 @@
 ---
 - name: Ensure Kubernetes Python client is installed for root
   pip:
-    name: kubernetes
+    name:
+      - kubernetes
+      - openshift
     executable: pip3
   become: true
 
 - name: Ensure Kubernetes Python client is installed for ec2-user
   pip:
-    name: kubernetes
+    name:
+      - kubernetes
+      - openshift
     executable: pip3
   become: true
   become_user: ec2-user
@@ -48,12 +52,12 @@
         tls.key: "{{ lookup('file', '/tmp/origin.key') | b64encode }}"
 
 - name: Add Helm repo
-  community.kubernetes.helm_repository:
+  kubernetes.core.helm_repository:
     name: kubernetes-dashboard
     repo_url: https://kubernetes.github.io/dashboard
 
 - name: Deploy dashboard
-  community.kubernetes.helm:
+  kubernetes.core.helm:
     name: kubernetes-dashboard
     chart_ref: kubernetes-dashboard/kubernetes-dashboard
     release_namespace: "{{ namespace }}"
