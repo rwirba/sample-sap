@@ -1,4 +1,10 @@
 ---
+- name: Ensure Kubernetes Python client is installed for root
+  pip:
+    name: kubernetes
+    executable: pip3
+  become: true
+
 - name: Ensure Kubernetes Python client is installed for ec2-user
   pip:
     name: kubernetes
