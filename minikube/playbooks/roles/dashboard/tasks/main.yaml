@@ -1,10 +1,11 @@
 ---
-- name: Ensure Kubernetes Python client is installed
+- name: Ensure Kubernetes Python client is installed for ec2-user
   pip:
     name: kubernetes
     executable: pip3
   become: true
-  
+  become_user: ec2-user
+
 - name: Create namespace
   kubernetes.core.k8s:
     api_version: v1
