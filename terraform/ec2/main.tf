@@ -67,6 +67,7 @@ resource "aws_instance" "rhel_demo1" {
               #!/bin/bash
               dnf -y update 
               dnf -y install git python3-pip
+              pip install kubernetes openshift
               pip3 install ansible
               echo 'export PATH=$PATH:/usr/local/bin' >> /home/ec2-user/.bashrc
               chown ec2-user:ec2-user /home/ec2-user/.bashrc

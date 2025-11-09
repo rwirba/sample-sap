@@ -4,6 +4,12 @@
     kind: Namespace
     name: "{{ namespace }}"
     state: present
+  environment:
+    # Use the specific path where your pip install placed the libraries
+    PYTHONPATH: "/home/ec2-user/.local/lib/python3.9/site-packages"
+  # Ensure you are running this as the ec2-user, or adjust the path accordingly
+  become: false 
+
 
 - name: Download TLS cert from S3
   aws_s3:
