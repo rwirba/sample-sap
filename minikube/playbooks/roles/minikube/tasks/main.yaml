@@ -24,10 +24,15 @@
   changed_when: false
 
 - name: Ensure clean Minikube state (optional cleanup)
-  file:
-    path: "{{ minikube_mount_path }}"
-    state: absent
+  # Use the minikube command to properly delete the cluster profile
+  command: /usr/local/bin/minikube delete --profile minikube
+  args:
+    # Use creates to ensure this task only runs if the cluster might exist
+    creates: "{{ minikube_mount_path }}/.minikube_started"
+  ignore_errors: true # In case the profile doesn't exist
   become: true
+  become_user: ec2-user
+
 
 - name: Start Minikube if not running
   command: >
