@@ -1,7 +1,7 @@
 - hosts: localhost
   become: true
   roles:
-    - minikube-dependencies
-    - minikube
-    - cloudflared
+    # - minikube-dependencies
+    # - minikube
+    # - cloudflared
     - dashboard
