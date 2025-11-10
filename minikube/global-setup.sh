@@ -1102,7 +1102,7 @@ fi
 rm -rf "$TMPDIR"
 
 # ==============================================================
-# ☁️ CLOUDFLARE TUNNEL (IDEMPOTENT)
+# ☁️ CLOUDFLARE TUNNEL (FULLY IDEMPOTENT)
 # ==============================================================
 ensure_dir "$LOCAL_CF_DIR"
 if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
@@ -1110,15 +1110,30 @@ if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
   exit 1
 fi
 
-# Reuse or create tunnel
-if cloudflared tunnel list 2>/dev/null | awk '{print $1}' | grep -qx "$TUNNEL_NAME"; then
-  log "✅ Tunnel '$TUNNEL_NAME' already exists."
+# --- Check if tunnel exists remotely ---
+TUNNEL_EXISTS=$(cloudflared tunnel list 2>/dev/null | awk '{print $1}' | grep -Fx "${TUNNEL_NAME}" || true)
+if [[ -n "$TUNNEL_EXISTS" ]]; then
+  log "✅ Cloudflare tunnel '${TUNNEL_NAME}' already exists remotely."
 else
-  log "🌐 Creating new tunnel '$TUNNEL_NAME'..."
-  cloudflared tunnel create "$TUNNEL_NAME"
+  log "🌐 Creating new Cloudflare tunnel '${TUNNEL_NAME}'..."
+  cloudflared tunnel create "${TUNNEL_NAME}" || log "⚠️  Tunnel already exists remotely, skipping creation."
 fi
 
-# Ensure config.yml and creds JSON exist
+# --- Ensure credentials JSON ---
+if [[ ! -f "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" ]]; then
+  if aws s3 ls "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" >/dev/null 2>&1; then
+    log "⬇️  Syncing existing tunnel credentials from S3..."
+    aws s3 cp "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" --quiet
+  else
+    log "🔑 Fetching tunnel credentials from Cloudflare..."
+    cloudflared tunnel token --cred-file "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${TUNNEL_NAME}" || true
+    aws s3 cp "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" --quiet || true
+  fi
+else
+  log "✅ Tunnel credentials already exist locally."
+fi
+
+# --- Config file ---
 MINIKUBE_IP=$(minikube ip)
 sudo tee "${LOCAL_CF_DIR}/config.yml" >/dev/null <<EOF
 tunnel: ${TUNNEL_NAME}
@@ -1130,34 +1145,29 @@ ingress:
 EOF
 sudo chown ec2-user:ec2-user "${LOCAL_CF_DIR}/config.yml"
 
-# Sync creds JSON to/from S3
-if ! [[ -f "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" ]]; then
-  if aws s3 ls "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" >/dev/null 2>&1; then
-    aws s3 cp "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" --quiet
-  else
-    log "🔑 Generating new tunnel credentials..."
-    cloudflared tunnel token --cred-file "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${TUNNEL_NAME}" || true
-  fi
-fi
-aws s3 cp "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" --quiet || true
-cloudflared tunnel route dns "$TUNNEL_NAME" "$DASHBOARD_HOST" >/dev/null 2>&1 || true
+# --- Ensure DNS route ---
+cloudflared tunnel route dns "${TUNNEL_NAME}" "${DASHBOARD_HOST}" >/dev/null 2>&1 || true
 
-# ---- Cloudflared service ----
+# --- Cloudflared service ---
 sudo tee /etc/systemd/system/cloudflared-${TUNNEL_NAME}.service >/dev/null <<EOF
 [Unit]
 Description=Cloudflare Tunnel: ${TUNNEL_NAME}
 After=network-online.target
 Wants=network-online.target
+
 [Service]
 User=ec2-user
 ExecStart=/usr/local/bin/cloudflared --config ${LOCAL_CF_DIR}/config.yml --no-autoupdate tunnel run
 Restart=always
 RestartSec=5
+
 [Install]
 WantedBy=multi-user.target
 EOF
+
 sudo systemctl daemon-reload
 sudo systemctl enable --now cloudflared-${TUNNEL_NAME}.service
+log "✅ Cloudflare tunnel '${TUNNEL_NAME}' is active and persistent."
 
 # ==============================================================
 # 📊 DASHBOARD DEPLOYMENT (IDEMPOTENT)
@@ -1223,4 +1233,3 @@ log "   • Minikube IP:    ${MINIKUBE_IP}"
 log "   • Dashboard URL:  https://${DASHBOARD_HOST}"
 log "   • Token file:     /etc/minikube/dashboard-token.txt"
 log "   • Cloudflare svc: cloudflared-${TUNNEL_NAME}.service"
-
