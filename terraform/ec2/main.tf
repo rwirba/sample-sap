@@ -66,32 +66,9 @@ resource "aws_instance" "rhel_demo1" {
   user_data = <<-EOF
               #!/bin/bash
               set -e
-
-              # ==== Base setup ====
               dnf -y update
-              dnf -y install git python3-pip
-
-              # Always upgrade pip first
-              /usr/bin/python3 -m pip install --upgrade pip
-
-              # ==== Install Ansible and dependencies ====
-              /usr/bin/python3 -m pip install --user ansible kubernetes openshift requests requests-oauthlib oauthlib
-
-              # Ensure PATH includes user bin
-              echo 'export PATH=$PATH:/home/ec2-user/.local/bin' >> /home/ec2-user/.bashrc
-              echo 'export PYTHONPATH=/home/ec2-user/.local/lib/python3.9/site-packages:$PYTHONPATH' >> /home/ec2-user/.bashrc
+              dnf -y install git
               chown ec2-user:ec2-user /home/ec2-user/.bashrc
-
-              # ==== Install Ansible Collections ====
-              sudo -u ec2-user /home/ec2-user/.local/bin/ansible-galaxy collection install \
-                community.general ansible.posix kubernetes.core
-
-              # ==== Verification (log to /var/log/bootstrap.log) ====
-              {
-                echo "Python path: $(which python3)"
-                python3 -m pip show ansible kubernetes openshift
-              } >> /var/log/bootstrap.log 2>&1
-
               EOF
 
   root_block_device {
