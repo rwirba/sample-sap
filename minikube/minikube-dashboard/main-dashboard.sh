@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # ==============================================================
-# Deploy Kubernetes Dashboard (official Helm repo) on Minikube
-# with Cloudflare Tunnel integration (demo namespace)
+# 🚀 Deploy Kubernetes Dashboard (GCR mirrors, demo namespace)
+#      - Works with Minikube (Podman/CRI-O)
+#      - Uses Cloudflare Tunnel for external access
 # ==============================================================
 
 DOMAIN="ryandemolab.app"
@@ -53,9 +54,17 @@ helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/ >/dev
 helm repo update >/dev/null
 
 # --- Pre-pull dashboard images (avoid ImageInspectError) ---
-echo "📦 Pre-pulling dashboard images..."
-minikube image pull kubernetesui/dashboard:v2.7.0 || true
-minikube image pull kubernetesui/metrics-scraper:v1.0.8 || true
+echo "📦 Pre-pulling GCR dashboard images..."
+for img in \
+  gcr.io/k8s-minikube/kubernetes-dashboard:v2.7.0 \
+  gcr.io/k8s-minikube/metrics-scraper:v1.0.8; do
+  if ! minikube image ls | grep -q "$img"; then
+    echo "⬇️  Pulling $img ..."
+    minikube image pull "$img" || echo "⚠️  Could not pull $img, continuing..."
+  else
+    echo "✅ $img already present."
+  fi
+done
 
 # --- Deploy Dashboard ---
 echo "🧩 Deploying Dashboard via Helm..."
@@ -68,6 +77,10 @@ helm upgrade --install ${APP_NAME} kubernetes-dashboard/kubernetes-dashboard \
   --set service.type=ClusterIP \
   --set service.port=443 \
   --set service.targetPort=8443 \
+  --set image.repository=gcr.io/k8s-minikube/kubernetes-dashboard \
+  --set image.tag=v2.7.0 \
+  --set metricsScraper.repository=gcr.io/k8s-minikube/metrics-scraper \
+  --set metricsScraper.tag=v1.0.8 \
   --atomic --timeout 5m
 
 # --- Wait for pods to be ready ---
@@ -75,7 +88,7 @@ echo "⏳ Waiting for Dashboard pods..."
 kubectl wait --for=condition=Ready pod -l k8s-app=kubernetes-dashboard -n ${NAMESPACE} --timeout=180s || true
 
 # --- Create admin-user account ---
-echo "🔐 Creating admin-user ServiceAccount and binding..."
+echo "🔐 Ensuring admin-user ServiceAccount and binding..."
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ServiceAccount
@@ -100,7 +113,9 @@ EOF
 # --- Generate admin token ---
 TOKEN=$(kubectl -n ${NAMESPACE} create token admin-user)
 echo "✅ Admin token generated successfully."
+sudo mkdir -p /etc/minikube
 echo "${TOKEN}" | sudo tee /etc/minikube/dashboard-token.txt >/dev/null
+sudo chmod 600 /etc/minikube/dashboard-token.txt
 
 # --- Cloudflare setup ---
 echo "🌐 Setting up Cloudflare tunnel for ${DOMAIN}..."
@@ -151,4 +166,3 @@ echo "🌐 Access Dashboard: https://dashboard.${DOMAIN}"
 echo "🔑 Token saved: /etc/minikube/dashboard-token.txt"
 echo "☁️ Tunnel credentials synced with: ${S3_TUNNEL_PATH}"
 echo ""
-
