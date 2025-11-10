@@ -5,7 +5,7 @@ set -euo pipefail
 # 🚀 Deploy Kubernetes Dashboard (GCR mirrors, demo namespace)
 #      - Works with Minikube (Podman/CRI-O)
 #      - Uses Cloudflare Tunnel for external access
-# ==============================================================
+# ===============================================================
 
 DOMAIN="ryandemolab.app"
 NAMESPACE="demo"
