@@ -682,105 +682,406 @@
 # echo "🎯 Global setup complete — all workloads (Vault, HANA, Dashboard) use namespace '$NAMESPACE'."
 
 
+# #!/bin/bash
+# set -euo pipefail
+
+# # ==============================================================
+# # 🌍 GLOBAL SETUP: Minikube + Cloudflare + Dashboard (demo ns)
+# # ==============================================================
+
+# DOMAIN="ryandemolab.app"
+# S3_BUCKET="ryandevlab-bucket"
+# S3_CERT_PATH="s3://${S3_BUCKET}/origin.crt"
+# S3_KEY_PATH="s3://${S3_BUCKET}/origin.key"
+# S3_TUNNEL_PATH="s3://${S3_BUCKET}/cloudflare-tunnels"
+# SECRET_NAME="cloudflare-cert"
+# NAMESPACE="demo"
+# LOCAL_CF_DIR="/home/ec2-user/.cloudflared"
+
+# echo "🌍 Starting full environment setup for Minikube + Dashboard (${DOMAIN})"
+
+# # ==============================================================
+# # 📦 INSTALL DEPENDENCIES
+# # ==============================================================
+# sudo dnf install -y conntrack curl wget vim unzip podman jq awscli policycoreutils || true
+
+# # --- Cloudflared ---
+# if ! command -v cloudflared &>/dev/null; then
+#   ARCH=$(uname -m)
+#   [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
+#   echo "📦 Installing Cloudflared..."
+#   sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
+#        -o /usr/local/bin/cloudflared
+#   sudo chmod +x /usr/local/bin/cloudflared
+# fi
+
+# # --- Passwordless sudo ---
+# if ! sudo grep -q "^ec2-user" /etc/sudoers.d/ec2-user 2>/dev/null; then
+#   echo "ec2-user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ec2-user >/dev/null
+#   sudo chmod 440 /etc/sudoers.d/ec2-user
+#   echo "✅ ec2-user granted passwordless sudo"
+# fi
+
+# # ==============================================================
+# # ⚙️ INSTALL MINIKUBE, HELM, KUBECTL
+# # ==============================================================
+# if ! command -v kubectl &>/dev/null; then
+#   echo "📦 Installing kubectl..."
+#   curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#   chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+# fi
+
+# if ! command -v minikube &>/dev/null; then
+#   echo "📦 Installing Minikube..."
+#   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+#   chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
+# fi
+
+# if ! command -v helm &>/dev/null; then
+#   echo "📦 Installing Helm..."
+#   curl -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
+#   tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
+#   sudo mv linux-amd64/helm /usr/local/bin/helm
+#   rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+# fi
+
+# # ==============================================================
+# # 🧠 MINIKUBE CONFIGURATION
+# # ==============================================================
+# HOST_CPUS=$(nproc)
+# HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
+# REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
+# REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
+
+# echo "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM → Using ${REQ_CPUS} CPUs / ${REQ_MEM}MB"
+
+# sudo mkdir -p /data/minikube
+# sudo chown -R ec2-user:ec2-user /data/minikube
+# sudo chmod -R 777 /data/minikube
+
+# # --- Start Minikube only if not running ---
+# if minikube status | grep -q "host: Running"; then
+#   echo "✅ Minikube already running — skipping startup only."
+# else
+#   if [[ -d /data/minikube && -n "$(ls -A /data/minikube 2>/dev/null)" ]]; then
+#     echo "⚠️  /data/minikube not empty — assuming existing cluster, skipping start."
+#   else
+#     echo "🚀 Starting Minikube (Podman driver)..."
+#     minikube start \
+#       --driver=podman \
+#       --container-runtime=cri-o \
+#       --mount=true \
+#       --mount-string="/data/minikube:/var/lib/minikube" \
+#       --cpus="${REQ_CPUS}" \
+#       --memory="${REQ_MEM}" \
+#       --disk-size=50g \
+#       --force
+#   fi                # ← closes the inner “if [[ -d … ]]”
+# fi                  # ← closes the outer “if minikube status …”
+
+
+# # --- Auto-start service ---
+# sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
+# [Unit]
+# Description=Auto-start Minikube on EC2 boot
+# After=network-online.target
+# Wants=network-online.target
+
+# [Service]
+# Type=oneshot
+# ExecStart=/usr/local/bin/minikube start --driver=podman --container-runtime=cri-o --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
+# RemainAfterExit=yes
+# User=ec2-user
+
+# [Install]
+# WantedBy=multi-user.target
+# EOF
+# sudo systemctl daemon-reload
+# sudo systemctl enable minikube-autostart.service
+
+# # ==============================================================
+# # 🧩 INGRESS + CERTIFICATES
+# # ==============================================================
+# if ! kubectl get ns ingress-nginx &>/dev/null; then
+#   minikube addons enable ingress
+# fi
+# kubectl wait -n ingress-nginx \
+#   --for=condition=Ready pod \
+#   -l app.kubernetes.io/component=controller \
+#   --timeout=180s || true
+
+# TMPDIR=$(mktemp -d)
+# aws s3 cp "$S3_CERT_PATH" "$TMPDIR/origin.crt" --quiet || true
+# aws s3 cp "$S3_KEY_PATH" "$TMPDIR/origin.key" --quiet || true
+
+# kubectl create ns "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+# if [[ -f "$TMPDIR/origin.crt" && -f "$TMPDIR/origin.key" ]]; then
+#   kubectl delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found
+#   kubectl create secret tls "$SECRET_NAME" \
+#     --cert="$TMPDIR/origin.crt" \
+#     --key="$TMPDIR/origin.key" \
+#     -n "$NAMESPACE"
+#   echo "✅ TLS secret created in '$NAMESPACE'"
+# else
+#   echo "⚠️ TLS certificate not found in S3."
+# fi
+# rm -rf "$TMPDIR"
+
+# # ==============================================================
+# # 🧭 CLOUDFLARE TUNNELS
+# # ==============================================================
+# sudo mkdir -p "$LOCAL_CF_DIR"
+# sudo chown -R ec2-user:ec2-user "$LOCAL_CF_DIR"
+
+# if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
+#   echo "🌐 Cloudflare not authenticated. Launching browser login..."
+#   echo "➡️  A browser window will open. Please log in and authorize this server."
+  
+#   # Run cloudflared login interactively
+#   cloudflared login || {
+#     echo "❌ Cloudflare login failed. Please retry manually."
+#     exit 1
+#   }
+
+#   # Wait for the certificate to appear
+#   echo "⏳ Waiting for Cloudflare authentication to complete..."
+#   for i in {1..30}; do
+#     if [[ -f "$LOCAL_CF_DIR/cert.pem" ]]; then
+#       echo "✅ Cloudflare authenticated successfully."
+#       break
+#     fi
+#     sleep 3
+#   done
+
+#   # Final check
+#   if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
+#     echo "❌ Authentication timed out (cert.pem not found)."
+#     exit 1
+#   fi
+# else
+#   echo "✅ Cloudflare already authenticated."
+# fi
+
+
+# # ==============================================================
+# # 🧠 DEPLOY KUBERNETES DASHBOARD VIA HELM
+# # ==============================================================
+
+# echo "🧩 Deploying Kubernetes Dashboard via Helm repo..."
+
+# # --- Ensure Helm repo is added ---
+# helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard --force-update >/dev/null
+# helm repo update >/dev/null
+
+# # --- Pre-pull required images to speed up first deploy ---
+# echo "📦 Pre-pulling Kubernetes Dashboard images..."
+# for IMG in \
+#   kubernetesui/dashboard:v2.7.0 \
+#   kubernetesui/metrics-scraper:v1.0.8; do
+#   echo "→ Pulling $IMG into Minikube cache..."
+#   for i in {1..3}; do
+#     if minikube image pull "$IMG"; then
+#       echo "✅ Pulled $IMG"
+#       break
+#     else
+#       echo "⚠️ Retry #$i for $IMG..."
+#       sleep 10
+#     fi
+#   done
+# done
+
+# # --- Function to safely deploy via Helm with retry ---
+# deploy_dashboard() {
+#   helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+#     --namespace "$NAMESPACE" \
+#     --create-namespace \
+#     --set fullnameOverride="kubernetes-dashboard" \
+#     --set ingress.enabled=true \
+#     --set ingress.className=nginx \
+#     --set ingress.hosts[0].host="dashboard.${DOMAIN}" \
+#     --set service.type=ClusterIP \
+#     --set service.port=443 \
+#     --set service.targetPort=8443 \
+#     --atomic --timeout 15m \
+#     | grep -v "unrecognized format" || true
+# }
+
+# echo "🚀 Deploying Dashboard..."
+# if ! deploy_dashboard; then
+#   echo "⚠️ Dashboard deployment failed on first try, retrying once after 30 s..."
+#   sleep 30
+#   deploy_dashboard || echo "❌ Dashboard installation failed — continuing to next steps."
+# fi
+
+# # --- Wait for Dashboard pods to be ready ---
+# echo "⏳ Waiting for Dashboard pods to be ready..."
+# kubectl wait --for=condition=Ready pod -l "k8s-app=kubernetes-dashboard" -n "$NAMESPACE" --timeout=300s || true
+
+# # --- Create admin user + RBAC ---
+# echo "🔐 Ensuring admin-user RBAC setup..."
+# cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
+# apiVersion: v1
+# kind: ServiceAccount
+# metadata:
+#   name: admin-user
+#   namespace: ${NAMESPACE}
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: admin-user-binding
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: cluster-admin
+# subjects:
+#   - kind: ServiceAccount
+#     name: admin-user
+#     namespace: ${NAMESPACE}
+# EOF
+
+# # --- Generate admin token and upload to S3 ---
+# TOKEN=$(kubectl -n "$NAMESPACE" create token admin-user --duration=24h || true)
+# if [[ -n "$TOKEN" ]]; then
+#   echo "$TOKEN" | sudo tee /etc/minikube/dashboard-token.txt >/dev/null
+#   aws s3 cp /etc/minikube/dashboard-token.txt "s3://${S3_BUCKET}/dashboard-token.txt" --quiet || true
+#   echo "✅ Dashboard admin token saved and uploaded to S3."
+# else
+#   echo "⚠️ Failed to generate dashboard token."
+# fi
+
+# # --- Expose Dashboard via Cloudflare Tunnel ---
+# echo "🌐 Setting up Cloudflare tunnel for dashboard..."
+# DASH_TUNNEL_JSON="${LOCAL_CF_DIR}/dashboard-tunnel.json"
+# if [[ -f "$DASH_TUNNEL_JSON" ]]; then
+#   cloudflared tunnel route dns dashboard-tunnel "dashboard.${DOMAIN}" || true
+#   echo "✅ Cloudflare tunnel ready → https://dashboard.${DOMAIN}"
+# else
+#   echo "⚠️ Dashboard tunnel credentials not found, skipping tunnel setup."
+# fi
+
+
 #!/bin/bash
 set -euo pipefail
 
-# ==============================================================
-# 🌍 GLOBAL SETUP: Minikube + Cloudflare + Dashboard (demo ns)
-# ==============================================================
-
+# =========================================
+# 🧩 CONFIG (edit as needed)
+# =========================================
 DOMAIN="ryandemolab.app"
+DASHBOARD_HOST="dashboard.${DOMAIN}"
 S3_BUCKET="ryandevlab-bucket"
 S3_CERT_PATH="s3://${S3_BUCKET}/origin.crt"
 S3_KEY_PATH="s3://${S3_BUCKET}/origin.key"
 S3_TUNNEL_PATH="s3://${S3_BUCKET}/cloudflare-tunnels"
-SECRET_NAME="cloudflare-cert"
+
 NAMESPACE="demo"
+SECRET_NAME="cloudflare-cert"
+TUNNEL_NAME="dashboard-tunnel"
 LOCAL_CF_DIR="/home/ec2-user/.cloudflared"
 
-echo "🌍 Starting full environment setup for Minikube + Dashboard (${DOMAIN})"
+LOGFILE="/var/log/global-setup.log"
+HELM_VERSION="v3.13.1"                   # pinned to avoid surprises
+CLOUDFLARED_VERSION="2024.6.0"           # stable behavior for creds
 
-# ==============================================================
-# 📦 INSTALL DEPENDENCIES
-# ==============================================================
-sudo dnf install -y conntrack curl wget vim unzip podman jq awscli policycoreutils || true
+# =========================================
+# 🔧 Helpers
+# =========================================
+log() { echo -e "$(date +'%F %T') | $*" | tee -a "$LOGFILE"; }
 
-# --- Cloudflared ---
-if ! command -v cloudflared &>/dev/null; then
-  ARCH=$(uname -m)
-  [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
-  echo "📦 Installing Cloudflared..."
-  sudo curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$ARCH" \
-       -o /usr/local/bin/cloudflared
-  sudo chmod +x /usr/local/bin/cloudflared
-fi
+retry() {
+  local -r max="$1"; shift
+  local -r sleep_s="$1"; shift
+  local n=1
+  until "$@"; do
+    if (( n >= max )); then return 1; fi
+    log "⚠️  Attempt $n/$max failed → retrying in ${sleep_s}s..."
+    sleep "$sleep_s"
+    n=$((n+1))
+  done
+}
 
-# --- Passwordless sudo ---
-if ! sudo grep -q "^ec2-user" /etc/sudoers.d/ec2-user 2>/dev/null; then
-  echo "ec2-user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ec2-user >/dev/null
-  sudo chmod 440 /etc/sudoers.d/ec2-user
-  echo "✅ ec2-user granted passwordless sudo"
-fi
+ensure_dir() { sudo mkdir -p "$1" && sudo chown -R ec2-user:ec2-user "$1"; }
 
-# ==============================================================
-# ⚙️ INSTALL MINIKUBE, HELM, KUBECTL
-# ==============================================================
-if ! command -v kubectl &>/dev/null; then
-  echo "📦 Installing kubectl..."
-  curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+# =========================================
+# 📦 Base dependencies
+# =========================================
+ensure_dir "$(dirname "$LOGFILE")"
+log "🌍 Starting full environment setup for Minikube + Dashboard (${DOMAIN})"
+
+sudo dnf install -y conntrack curl wget vim unzip podman jq awscli policycoreutils tar || true
+
+# kubectl
+if ! command -v kubectl >/dev/null 2>&1; then
+  log "📦 Installing kubectl..."
+  curl -Ls -o kubectl "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
   chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 fi
 
-if ! command -v minikube &>/dev/null; then
-  echo "📦 Installing Minikube..."
+# minikube
+if ! command -v minikube >/dev/null 2>&1; then
+  log "📦 Installing Minikube..."
   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
   chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
 fi
 
-if ! command -v helm &>/dev/null; then
-  echo "📦 Installing Helm..."
-  curl -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
-  tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
+# helm (pinned)
+if ! command -v helm >/dev/null 2>&1; then
+  log "📦 Installing Helm ${HELM_VERSION}..."
+  curl -LO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+  tar -zxf "helm-${HELM_VERSION}-linux-amd64.tar.gz" >/dev/null
   sudo mv linux-amd64/helm /usr/local/bin/helm
-  rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+  rm -rf linux-amd64 "helm-${HELM_VERSION}-linux-amd64.tar.gz"
 fi
 
-# ==============================================================
-# 🧠 MINIKUBE CONFIGURATION
-# ==============================================================
+# cloudflared (pinned)
+if ! command -v cloudflared >/dev/null 2>&1; then
+  ARCH=$(uname -m); [[ "$ARCH" == "x86_64" ]] && ARCH=amd64
+  log "📦 Installing cloudflared ${CLOUDFLARED_VERSION}..."
+  sudo curl -L "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-${ARCH}" -o /usr/local/bin/cloudflared
+  sudo chmod +x /usr/local/bin/cloudflared
+fi
+
+# passwordless sudo for ec2-user (idempotent)
+if ! sudo grep -q "^ec2-user" /etc/sudoers.d/ec2-user 2>/dev/null; then
+  echo "ec2-user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ec2-user >/dev/null
+  sudo chmod 440 /etc/sudoers.d/ec2-user
+  log "✅ ec2-user granted passwordless sudo"
+fi
+
+# =========================================
+# 🧠 Minikube resources & start
+# =========================================
 HOST_CPUS=$(nproc)
-HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
+HOST_MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
 REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
-REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
+REQ_CPUS=$(( REQ_CPUS < 2 ? 2 : REQ_CPUS ))
+REQ_MEM=$(( HOST_MEM_MB > 18000 ? 16000 : (HOST_MEM_MB - 2000) ))
+REQ_MEM=$(( REQ_MEM < 6000 ? 6000 : REQ_MEM ))
 
-echo "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM}MB RAM → Using ${REQ_CPUS} CPUs / ${REQ_MEM}MB"
+log "🧠 Host: ${HOST_CPUS} CPUs, ${HOST_MEM_MB}MB RAM → Using ${REQ_CPUS} CPUs / ${REQ_MEM}MB"
 
-sudo mkdir -p /data/minikube
-sudo chown -R ec2-user:ec2-user /data/minikube
-sudo chmod -R 777 /data/minikube
+ensure_dir /data/minikube
+sudo chmod 777 /data/minikube || true
 
-# --- Start Minikube only if not running ---
-if minikube status | grep -q "host: Running"; then
-  echo "✅ Minikube already running — skipping startup only."
+if minikube status 2>/dev/null | grep -q "host: Running"; then
+  log "✅ Minikube already running."
 else
-  if [[ -d /data/minikube && -n "$(ls -A /data/minikube 2>/dev/null)" ]]; then
-    echo "⚠️  /data/minikube not empty — assuming existing cluster, skipping start."
-  else
-    echo "🚀 Starting Minikube (Podman driver)..."
+  if [[ -n "$(ls -A /data/minikube 2>/dev/null || true)" ]]; then
+    log "⚠️  /data/minikube not empty → assuming existing cluster storage; starting Minikube."
+  fi
+  log "🚀 Starting Minikube (Podman driver)..."
+  retry 3 10 \
     minikube start \
       --driver=podman \
-      --container-runtime=cri-o \
       --mount=true \
       --mount-string="/data/minikube:/var/lib/minikube" \
       --cpus="${REQ_CPUS}" \
       --memory="${REQ_MEM}" \
       --disk-size=50g \
       --force
-  fi                # ← closes the inner “if [[ -d … ]]”
-fi                  # ← closes the outer “if minikube status …”
+fi
 
-
-# --- Auto-start service ---
+# Autostart unit (idempotent)
 sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
 [Unit]
 Description=Auto-start Minikube on EC2 boot
@@ -789,7 +1090,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/minikube start --driver=podman --container-runtime=cri-o --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
+ExecStart=/usr/local/bin/minikube start --driver=podman --mount=true --mount-string="/data/minikube:/var/lib/minikube" --force
 RemainAfterExit=yes
 User=ec2-user
 
@@ -797,129 +1098,136 @@ User=ec2-user
 WantedBy=multi-user.target
 EOF
 sudo systemctl daemon-reload
-sudo systemctl enable minikube-autostart.service
+sudo systemctl enable minikube-autostart.service >/dev/null || true
 
-# ==============================================================
-# 🧩 INGRESS + CERTIFICATES
-# ==============================================================
-if ! kubectl get ns ingress-nginx &>/dev/null; then
-  minikube addons enable ingress
+# Wait for node ready
+kubectl wait --for=condition=Ready node --all --timeout=180s || true
+
+# =========================================
+# 🌐 Ingress NGINX
+# =========================================
+if ! kubectl get ns ingress-nginx >/dev/null 2>&1; then
+  log "🧩 Enabling ingress controller..."
+  minikube addons enable ingress | tee -a "$LOGFILE" || true
 fi
 kubectl wait -n ingress-nginx \
   --for=condition=Ready pod \
   -l app.kubernetes.io/component=controller \
-  --timeout=180s || true
+  --timeout=300s || true
 
+# =========================================
+# 🔐 TLS Secret from S3
+# =========================================
 TMPDIR=$(mktemp -d)
 aws s3 cp "$S3_CERT_PATH" "$TMPDIR/origin.crt" --quiet || true
 aws s3 cp "$S3_KEY_PATH" "$TMPDIR/origin.key" --quiet || true
 
-kubectl create ns "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-if [[ -f "$TMPDIR/origin.crt" && -f "$TMPDIR/origin.key" ]]; then
-  kubectl delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found
-  kubectl create secret tls "$SECRET_NAME" \
+kubectl create ns "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
+if [[ -s "$TMPDIR/origin.crt" && -s "$TMPDIR/origin.key" ]]; then
+  kubectl -n "$NAMESPACE" delete secret "$SECRET_NAME" --ignore-not-found >/dev/null
+  kubectl -n "$NAMESPACE" create secret tls "$SECRET_NAME" \
     --cert="$TMPDIR/origin.crt" \
-    --key="$TMPDIR/origin.key" \
-    -n "$NAMESPACE"
-  echo "✅ TLS secret created in '$NAMESPACE'"
+    --key="$TMPDIR/origin.key" >/dev/null
+  log "✅ TLS secret '${SECRET_NAME}' created in '${NAMESPACE}'."
 else
-  echo "⚠️ TLS certificate not found in S3."
+  log "⚠️  TLS files not found in S3 → skipping secret."
 fi
 rm -rf "$TMPDIR"
 
-# ==============================================================
-# 🧭 CLOUDFLARE TUNNELS
-# ==============================================================
-sudo mkdir -p "$LOCAL_CF_DIR"
-sudo chown -R ec2-user:ec2-user "$LOCAL_CF_DIR"
-
+# =========================================
+# 🧭 Cloudflare Tunnel (pinned behavior)
+# =========================================
+ensure_dir "$LOCAL_CF_DIR"
 if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
-  echo "🌐 Cloudflare not authenticated. Launching browser login..."
-  echo "➡️  A browser window will open. Please log in and authorize this server."
-  
-  # Run cloudflared login interactively
-  cloudflared login || {
-    echo "❌ Cloudflare login failed. Please retry manually."
-    exit 1
-  }
-
-  # Wait for the certificate to appear
-  echo "⏳ Waiting for Cloudflare authentication to complete..."
-  for i in {1..30}; do
-    if [[ -f "$LOCAL_CF_DIR/cert.pem" ]]; then
-      echo "✅ Cloudflare authenticated successfully."
-      break
-    fi
-    sleep 3
-  done
-
-  # Final check
-  if [[ ! -f "$LOCAL_CF_DIR/cert.pem" ]]; then
-    echo "❌ Authentication timed out (cert.pem not found)."
-    exit 1
-  fi
-else
-  echo "✅ Cloudflare already authenticated."
+  log "❌ Cloudflare not authenticated on this host. Run:  cloudflared login"
+  log "   After login, re-run this script."
+  exit 1
 fi
 
+# Ensure tunnel exists
+if ! cloudflared tunnel list 2>/dev/null | awk '{print $1}' | grep -q "^${TUNNEL_NAME}$"; then
+  log "🌐 Creating tunnel ${TUNNEL_NAME}..."
+  cloudflared tunnel create "${TUNNEL_NAME}" | tee -a "$LOGFILE"
+fi
 
-# ==============================================================
-# 🧠 DEPLOY KUBERNETES DASHBOARD VIA HELM
-# ==============================================================
+# Config for the tunnel to reach Ingress on Minikube IP
+MINIKUBE_IP=$(minikube ip)
+sudo tee "${LOCAL_CF_DIR}/config.yml" >/dev/null <<EOF
+tunnel: ${TUNNEL_NAME}
+credentials-file: ${LOCAL_CF_DIR}/${TUNNEL_NAME}.json
+ingress:
+  - hostname: ${DASHBOARD_HOST}
+    service: http://${MINIKUBE_IP}:80
+  - service: http_status:404
+EOF
+sudo chown ec2-user:ec2-user "${LOCAL_CF_DIR}/config.yml"
 
-echo "🧩 Deploying Kubernetes Dashboard via Helm repo..."
+# Persist creds JSON (download to filesystem if not present)
+if [[ ! -f "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" ]]; then
+  # Try S3 first
+  if aws s3 ls "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" >/dev/null 2>&1; then
+    aws s3 cp "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" --quiet || true
+  fi
+fi
+# If still missing, fetch new creds file
+if [[ ! -f "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" ]]; then
+  log "🔑 Fetching tunnel credentials file locally..."
+  cloudflared tunnel token --cred-file "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${TUNNEL_NAME}" || true
+fi
+# Upload/refresh in S3 (idempotent)
+aws s3 cp "${LOCAL_CF_DIR}/${TUNNEL_NAME}.json" "${S3_TUNNEL_PATH}/${TUNNEL_NAME}.json" --quiet || true
 
-# --- Ensure Helm repo is added ---
+# DNS route (idempotent)
+cloudflared tunnel route dns "${TUNNEL_NAME}" "${DASHBOARD_HOST}" >/dev/null || true
+
+# Systemd for cloudflared
+sudo tee /etc/systemd/system/cloudflared-${TUNNEL_NAME}.service >/dev/null <<EOF
+[Unit]
+Description=Cloudflare Tunnel: ${TUNNEL_NAME}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ec2-user
+ExecStart=/usr/local/bin/cloudflared --config ${LOCAL_CF_DIR}/config.yml --no-autoupdate tunnel run
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now "cloudflared-${TUNNEL_NAME}.service"
+
+# =========================================
+# 📊 Kubernetes Dashboard (Helm)
+#  - suppress warning spam
+#  - no --atomic (avoid rollback on Ctrl+C)
+# =========================================
+log "🧩 Deploying Kubernetes Dashboard via Helm..."
 helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard --force-update >/dev/null
 helm repo update >/dev/null
 
-# --- Pre-pull required images to speed up first deploy ---
-echo "📦 Pre-pulling Kubernetes Dashboard images..."
-for IMG in \
-  kubernetesui/dashboard:v2.7.0 \
-  kubernetesui/metrics-scraper:v1.0.8; do
-  echo "→ Pulling $IMG into Minikube cache..."
-  for i in {1..3}; do
-    if minikube image pull "$IMG"; then
-      echo "✅ Pulled $IMG"
-      break
-    else
-      echo "⚠️ Retry #$i for $IMG..."
-      sleep 10
-    fi
-  done
-done
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --namespace "$NAMESPACE" \
+  --create-namespace \
+  --set fullnameOverride="kubernetes-dashboard" \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set ingress.hosts[0].host="${DASHBOARD_HOST}" \
+  --set service.type=ClusterIP \
+  --set service.port=443 \
+  --set service.targetPort=8443 \
+  --timeout 15m 2>&1 | grep -v 'unrecognized format' | tee -a "$LOGFILE"
 
-# --- Function to safely deploy via Helm with retry ---
-deploy_dashboard() {
-  helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-    --namespace "$NAMESPACE" \
-    --create-namespace \
-    --set fullnameOverride="kubernetes-dashboard" \
-    --set ingress.enabled=true \
-    --set ingress.className=nginx \
-    --set ingress.hosts[0].host="dashboard.${DOMAIN}" \
-    --set service.type=ClusterIP \
-    --set service.port=443 \
-    --set service.targetPort=8443 \
-    --atomic --timeout 15m \
-    | grep -v "unrecognized format" || true
-}
+# Wait for pods
+log "⏳ Waiting for Dashboard pods to be Ready..."
+kubectl -n "$NAMESPACE" wait --for=condition=Ready pod -l "k8s-app=kubernetes-dashboard" --timeout=300s || true
 
-echo "🚀 Deploying Dashboard..."
-if ! deploy_dashboard; then
-  echo "⚠️ Dashboard deployment failed on first try, retrying once after 30 s..."
-  sleep 30
-  deploy_dashboard || echo "❌ Dashboard installation failed — continuing to next steps."
-fi
-
-# --- Wait for Dashboard pods to be ready ---
-echo "⏳ Waiting for Dashboard pods to be ready..."
-kubectl wait --for=condition=Ready pod -l "k8s-app=kubernetes-dashboard" -n "$NAMESPACE" --timeout=300s || true
-
-# --- Create admin user + RBAC ---
-echo "🔐 Ensuring admin-user RBAC setup..."
-cat <<EOF | kubectl apply -n "$NAMESPACE" -f -
+# Admin-user RBAC (idempotent)
+log "🔐 Applying admin-user RBAC..."
+cat <<EOF | kubectl apply -n "$NAMESPACE" -f - >/dev/null
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -940,22 +1248,24 @@ subjects:
     namespace: ${NAMESPACE}
 EOF
 
-# --- Generate admin token and upload to S3 ---
-TOKEN=$(kubectl -n "$NAMESPACE" create token admin-user --duration=24h || true)
-if [[ -n "$TOKEN" ]]; then
+# Token to file + S3
+sudo mkdir -p /etc/minikube
+if TOKEN="$(kubectl -n "$NAMESPACE" create token admin-user --duration=24h 2>/dev/null)"; then
   echo "$TOKEN" | sudo tee /etc/minikube/dashboard-token.txt >/dev/null
   aws s3 cp /etc/minikube/dashboard-token.txt "s3://${S3_BUCKET}/dashboard-token.txt" --quiet || true
-  echo "✅ Dashboard admin token saved and uploaded to S3."
+  log "✅ Dashboard token saved to /etc/minikube/dashboard-token.txt and uploaded to S3."
 else
-  echo "⚠️ Failed to generate dashboard token."
+  log "⚠️  Could not generate dashboard token (older kubectl?). You can create one manually:"
+  log "    kubectl -n ${NAMESPACE} create token admin-user --duration=24h"
 fi
 
-# --- Expose Dashboard via Cloudflare Tunnel ---
-echo "🌐 Setting up Cloudflare tunnel for dashboard..."
-DASH_TUNNEL_JSON="${LOCAL_CF_DIR}/dashboard-tunnel.json"
-if [[ -f "$DASH_TUNNEL_JSON" ]]; then
-  cloudflared tunnel route dns dashboard-tunnel "dashboard.${DOMAIN}" || true
-  echo "✅ Cloudflare tunnel ready → https://dashboard.${DOMAIN}"
-else
-  echo "⚠️ Dashboard tunnel credentials not found, skipping tunnel setup."
-fi
+# =========================================
+# 🧪 Health summary
+# =========================================
+log "📌 Summary:"
+log "  • Namespace:     ${NAMESPACE}"
+log "  • Minikube IP:   ${MINIKUBE_IP}"
+log "  • Dashboard URL: https://${DASHBOARD_HOST}"
+log "  • Token file:    /etc/minikube/dashboard-token.txt (if created)"
+log "  • Tunnel unit:   cloudflared-${TUNNEL_NAME}.service"
+log "🎉 Setup complete."
