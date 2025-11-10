@@ -767,20 +767,18 @@ else
     echo "⚠️  /data/minikube not empty — assuming existing cluster, skipping start."
   else
     echo "🚀 Starting Minikube (Podman driver)..."
-  minikube start \
-    --driver=podman \
-    --container-runtime=cri-o \
-    --mount=true \
-    --mount-string="/data/minikube:/var/lib/minikube" \
-    --cpus="${REQ_CPUS}" \
-    --memory="${REQ_MEM}" \
-    --disk-size=50g \
-    --force
-else
-  echo "✅ Minikube already running."
-fi
+    minikube start \
+      --driver=podman \
+      --container-runtime=cri-o \
+      --mount=true \
+      --mount-string="/data/minikube:/var/lib/minikube" \
+      --cpus="${REQ_CPUS}" \
+      --memory="${REQ_MEM}" \
+      --disk-size=50g \
+      --force
+  fi                # ← closes the inner “if [[ -d … ]]”
+fi                  # ← closes the outer “if minikube status …”
 
-kubectl wait --for=condition=Ready node --all --timeout=180s || true
 
 # --- Auto-start service ---
 sudo tee /etc/systemd/system/minikube-autostart.service >/dev/null <<EOF
