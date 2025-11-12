@@ -1,7 +1,9 @@
+{{- if .Values.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ include "vault-demo.name" . }}-pvc
+  namespace: demo
   annotations:
     note: "Used only if persistence.hostPath is not set"
 spec:
@@ -10,3 +12,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
+{{- end }}
