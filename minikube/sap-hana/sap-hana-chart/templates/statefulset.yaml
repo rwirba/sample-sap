@@ -14,18 +14,18 @@ spec:
     metadata:
       labels:
         app: {{ include "sap-hana.name" . }}
+      {{- if .Values.hana.vault.enabled }}
       annotations:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: "hana-role"
-        # Path to your Vault secret (kv v2)
         vault.hashicorp.com/agent-inject-secret-password.json: "{{ .Values.hana.vault.secretPath }}"
-        # Template to render password.json with correct field from Vault
         vault.hashicorp.com/agent-inject-template-password.json: |
           {{`{{- with secret "`}}{{ .Values.hana.vault.secretPath }}{{`" -}}`}}
           {
             "master_password": "{{`{{ .Data.data.`}}{{ .Values.hana.vault.secretKey }}{{` }}`}}"
           }
           {{`{{- end }}`}}
+      {{- end }}
     spec:
       serviceAccountName: vault-auth
       terminationGracePeriodSeconds: 60
@@ -52,6 +52,15 @@ spec:
           volumeMounts:
             - name: hana-storage
               mountPath: {{ .Values.persistence.mountPath }}
+            {{- if not .Values.hana.vault.enabled }}
+            - name: hana-password
+              mountPath: /vault/secrets
+            {{- end }}
+          {{- if not .Values.hana.vault.enabled }}
+          env:
+            - name: HANA_MASTER_PASSWORD
+              value: "{{ .Values.hana.masterPassword }}"
+          {{- end }}
           livenessProbe:
             exec:
               command: ["/bin/bash", "-c", "{{ .Values.hana.healthcheckCommand }}"]
@@ -64,3 +73,10 @@ spec:
           hostPath:
             path: {{ .Values.persistence.hostPath }}
             type: DirectoryOrCreate
+        {{- if not .Values.hana.vault.enabled }}
+        - name: hana-password
+          projected:
+            sources:
+              - secret:
+                  name: hana-password-secret
+        {{- end }}

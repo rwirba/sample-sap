@@ -34,7 +34,8 @@ securityContext:
 
 hana:
   hostname: hana-host
+  masterPassword: "HXEHana1"   
   healthcheckCommand: "pgrep -f hdbnameserver >/dev/null || exit 1"
   vault:
-    secretPath: "kv/data/hana"
-    secretKey: "master_password"
+    enabled: false             
+
