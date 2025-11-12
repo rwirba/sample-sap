@@ -20,7 +20,7 @@ helm upgrade --install "${APP_NAME}" "${CHART_PATH}" \
   --namespace "${NAMESPACE}" \
   --wait
 
-# --- Wait for Vault pod ---
+## --- Wait for Vault pod ---
 echo "⏳ Waiting for Vault pod to be ready..."
 kubectl wait --for=condition=Ready pod -l app=vault-demo -n "${NAMESPACE}" --timeout=180s
 
