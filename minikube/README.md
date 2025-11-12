@@ -89,3 +89,63 @@ curl -sv "http://${MINIKUBE_IP}:${NODE_PORT}"
 ---
 for hana and vault
 
+
+if ! command -v kubectl &>/dev/null; then
+  echo "📦 Installing kubectl..."
+  curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+fi
+
+if ! command -v minikube &>/dev/null; then
+  echo "📦 Installing Minikube..."
+  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  chmod +x minikube-linux-amd64 && sudo mv minikube-linux-amd64 /usr/local/bin/minikube
+fi
+
+if ! command -v helm &>/dev/null; then
+  echo "📦 Installing Helm..."
+  curl -LO https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
+  tar -zxf helm-v3.13.1-linux-amd64.tar.gz >/dev/null
+  sudo mv linux-amd64/helm /usr/local/bin/helm
+  rm -rf linux-amd64 helm-v3.13.1-linux-amd64.tar.gz
+fi
+
+# ==============================================================
+# ⚙️ MINIKUBE SETUP
+# ==============================================================
+HOST_CPUS=$(nproc)
+HOST_MEM=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
+REQ_CPUS=$(( HOST_CPUS > 6 ? 6 : (HOST_CPUS - 1) ))
+REQ_MEM=$(( HOST_MEM > 18000 ? 16000 : (HOST_MEM - 2000) ))
+
+sudo mkdir -p /data/minikube
+sudo chown -R ec2-user:ec2-user /data/minikube
+sudo chmod -R 777 /data/minikube
+
+if ! minikube status | grep -q "host: Running"; then
+  echo "🚀 Starting Minikube (Podman driver)..."
+  minikube start \
+    --driver=podman \
+    --container-runtime=cri-o \
+    --mount=true \
+    --mount-string="/data/minikube:/var/lib/minikube" \
+    --cpus="${REQ_CPUS}" \
+    --memory="${REQ_MEM}" \
+    --disk-size=50g \
+    --force
+else
+  echo "✅ Minikube already running."
+fi
+
+kubectl wait --for=condition=Ready node --all --timeout=180s || true
+
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+
+
+kubectl create serviceaccount dashboard-admin-sa -n kubernetes-dashboard
+
+kubectl create clusterrolebinding dashboard-admin-sa-binding --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin-sa
+kubectl -n kubernetes-dashboard create token dashboard-admin-sa
+
+kubectl -n kubernetes-dashboard port-forward --address 0.0.0.0 svc/kubernetes-dashboard-kong-proxy 8443:443 &
