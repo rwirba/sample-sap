@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="vault"
+APP_NAME="vault-demo"
 CHART_PATH="./vault-chart"
 NAMESPACE="demo"
 
@@ -9,7 +9,7 @@ echo "🚀 Deploying HashiCorp Vault (namespace: ${NAMESPACE})..."
 
 # --- Ensure namespace exists ---
 if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
-  echo "Creating namespace ${NAMESPACE}..."
+  echo "🧱 Creating namespace ${NAMESPACE}..."
   kubectl create ns "${NAMESPACE}"
 else
   echo "✅ Namespace ${NAMESPACE} already exists"
@@ -22,9 +22,9 @@ helm upgrade --install "${APP_NAME}" "${CHART_PATH}" \
 
 # --- Wait for Vault pod ---
 echo "⏳ Waiting for Vault pod to be ready..."
-kubectl wait --for=condition=Ready pod -l app=vault -n "${NAMESPACE}" --timeout=180s
+kubectl wait --for=condition=Ready pod -l app=vault-demo -n "${NAMESPACE}" --timeout=180s
 
-VAULT_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=vault -o jsonpath="{.items[0].metadata.name}")
+VAULT_POD=$(kubectl get pod -n "${NAMESPACE}" -l app=vault-demo -o jsonpath="{.items[0].metadata.name}")
 echo "✅ Vault pod detected: ${VAULT_POD}"
 
 # --- Create service account if missing ---
@@ -40,17 +40,16 @@ else
   echo "✅ Service account vault-auth already exists"
 fi
 
-# --- Initialize Vault if needed ---
+# --- Check if Vault is initialized ---
 echo "🔐 Checking Vault initialization status..."
 INIT_STATUS=$(kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- vault status -format=json | jq -r .initialized || true)
 
 if [[ "$INIT_STATUS" == "false" ]]; then
   echo "⚙️ Initializing Vault..."
   kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- vault operator init -key-shares=1 -key-threshold=1 > /tmp/vault-init.txt
-  echo "Vault initialized. Saving root token and unseal key."
-  cat /tmp/vault-init.txt
   UNSEAL_KEY=$(grep 'Unseal Key 1:' /tmp/vault-init.txt | awk '{print $NF}')
   ROOT_TOKEN=$(grep 'Initial Root Token:' /tmp/vault-init.txt | awk '{print $NF}')
+  echo "Vault initialized with root token and unseal key."
   kubectl create secret generic vault-init-keys -n "${NAMESPACE}" \
     --from-literal=unseal_key="${UNSEAL_KEY}" \
     --from-literal=root_token="${ROOT_TOKEN}" \
@@ -60,7 +59,7 @@ else
   echo "✅ Vault already initialized."
 fi
 
-# --- Verify Vault is unsealed ---
+# --- Verify Vault unseal status ---
 SEALED=$(kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- vault status -format=json | jq -r .sealed)
 if [[ "$SEALED" == "true" ]]; then
   echo "🔓 Unsealing Vault using stored key..."
@@ -70,11 +69,11 @@ else
   echo "✅ Vault is already unsealed."
 fi
 
-# --- Configure Vault with root token ---
+# --- Configure Vault using root token ---
 ROOT_TOKEN=$(kubectl get secret vault-init-keys -n "${NAMESPACE}" -o jsonpath='{.data.root_token}' | base64 --decode)
 echo "🔧 Configuring Vault using ROOT_TOKEN=${ROOT_TOKEN:0:6}******"
 
-# Enable KV v2 secrets engine (idempotent)
+# Enable KV v2 secrets engine
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c "
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=${ROOT_TOKEN}
@@ -109,7 +108,7 @@ vault write auth/kubernetes/config \
 echo '✅ Kubernetes Auth configured'
 "
 
-# Create a default policy and role
+# Create policy & role for HANA
 kubectl exec -n "${NAMESPACE}" "${VAULT_POD}" -- sh -c "
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_TOKEN=${ROOT_TOKEN}
@@ -135,4 +134,6 @@ fi
 echo "📊 Deployment Summary:"
 kubectl get pods,svc,ingress -n "${NAMESPACE}"
 
-echo "🎯 Vault successfully deployed and configured (accessible via https://vault.ryandemolab.app)"
+echo "🎯 Vault successfully deployed and configured."
+echo "🌐 Access the Vault UI at: https://vault.ryandemolab.app"
+echo "🔑 Root token: ${ROOT_TOKEN}"
